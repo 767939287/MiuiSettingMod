@@ -192,11 +192,30 @@ class HideGestureLineHook : BaseHook() {
     }
 
     private fun zeroNavigationBarInset(layoutParams: WindowManager.LayoutParams) {
-        val providers = runCatching { layoutParams.providedInsets }.getOrNull() ?: return
+        // `providedInsets` 与 `InsetsFrameProvider` 在 Android SDK 中是 @hide，只能反射访问。
+        val providers = runCatching {
+            WindowManager.LayoutParams::class.java
+                .getDeclaredField("providedInsets")
+                .apply { isAccessible = true }
+                .get(layoutParams) as? Array<*>
+        }.getOrNull() ?: return
+
+        val navBarsType = WindowInsets.Type.navigationBars()
+        val zeroInsets = Insets.of(0, 0, 0, 0)
         providers.forEach { provider ->
-            val type = runCatching { provider.type }.getOrNull() ?: return@forEach
-            if (type != WindowInsets.Type.navigationBars()) return@forEach
-            runCatching { provider.setInsetsSize(Insets.of(0, 0, 0, 0)) }
+            if (provider == null) return@forEach
+            val type = runCatching {
+                provider.javaClass.getDeclaredMethod("getType")
+                    .apply { isAccessible = true }
+                    .invoke(provider)
+            }.getOrNull()
+            if (type != navBarsType) return@forEach
+            runCatching {
+                provider.javaClass
+                    .getDeclaredMethod("setInsetsSize", Insets::class.java)
+                    .apply { isAccessible = true }
+                    .invoke(provider, zeroInsets)
+            }.onFailure { HookHelper.log("$tag: set navigationBars inset failed", it) }
         }
     }
 

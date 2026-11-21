@@ -50,7 +50,7 @@ class AodGlowHook : BaseHook() {
         // 主路径：插件加载时直接拿到插件 ClassLoader。
         hookPluginFactory(loader, handler)
         // 兜底一：插件 dex 若挂在主 ClassLoader 上，可直接取。
-        probe(loader)
+        loader?.let { probe(it) }
         // 兜底二：定时遍历插件注册表与线程上下文（只读）。
         startProbeLoop(loader, handler)
     }
