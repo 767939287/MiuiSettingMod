@@ -59,6 +59,12 @@ private fun featureSections(specs: List<OptionSpec>): List<HookSection> = listOf
         ),
     ),
     HookSection(
+        titleRes = R.string.feature_section_aod,
+        specs = listOf(
+            specByKey(specs, "aod_disable_notification_glow"),
+        ),
+    ),
+    HookSection(
         titleRes = R.string.feature_section_theme,
         specs = listOf(
             specByKey(specs, "theme_crack_theme_manager_enabled"),
@@ -110,6 +116,15 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         ),
         entryValues = listOf("0", "1"),
         targetPackages = listOf("com.android.systemui"),
+    ),
+    OptionSpec(
+        key = "aod_disable_notification_glow",
+        type = OptionType.SWITCH,
+        titleRes = R.string.aod_disable_notification_glow,
+        summaryRes = R.string.aod_disable_notification_glow_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("com.android.systemui"),
+        showStatus = true,
     ),
     OptionSpec(
         key = "theme_crack_theme_manager_enabled",

@@ -14,29 +14,52 @@
 
 </div>
 
-**MiuiSettingMod** 是一个开箱即用的 **LSPosed 模块模板**，基于 [libxposed API 102](https://libxposed.github.io/api/index-all.html) 与 [Miuix](https://github.com/compose-miuix-ui/miuix) Compose 组件库，提供一套完整的 Hook 二次封装接口与可复用 UI 组件，帮助你快速构建自己的 Xposed 模块。
+**MiuiSettingMod** 是面向 HyperOS 的 LSPosed 模块，提供一组可开关的系统界面增强功能；同时基于 [libxposed API 102](https://libxposed.github.io/api/index-all.html) 与 [Miuix](https://github.com/compose-miuix-ui/miuix) Compose 组件库，保留完整的 Hook 封装、配置系统与安全模式，方便继续扩展自己的功能。
 
 <br>
 
 # 功能
 
-- **Hook 封装** — `hookBefore` / `hookAfter` / `hookReplace` / `intercept` / `findAndHook*` / `hookAll*` / `hookClassInitializer` / `invokeOriginal`，统一句柄管理
-- **原生 Hook 封装** — `NativeHookHelper` / `BaseNativeHook` / `BaseLoad.initNativeHook`，与 JavaHook 对称的一键接入（声明、加载、开关、安全兜底）；面向 Rust 应用（`flutter_rust_bridge` / 纯 Rust 库），详见[原生 Hook 指南](docs/NATIVE_HOOK.md)
-- **版本 / 设备筛选** — 统一的 `HookVersionGate` 与 `deviceScope`：版本支持 `>` `<`、多重规则（AND/OR），可按 Android / HyperOS / MIUI / 应用版本；设备支持手机 / 平板 / 折叠屏区分，默认各设备通用，并可在设置中手动覆盖当前设备类型
-- **安全模式** — 设置页「模块」分区声明安全模式状态并提供入口，二级页逐应用开关安全模式并查看崩溃计数
+功能页按分区组织，开关默认全部关闭；改动后需要重启对应进程（或系统）才会生效。
+
+## 显示与界面
+
+- **强制开启色彩风格高级模式** — 在「设置 → 显示 → 色彩风格」中恒显示高级（专业）模式入口（`com.android.settings`）
+
+## 系统界面
+
+- **隐藏手势线** — 常驻隐藏，或仅在桌面隐藏、回到其它应用时恢复（`com.android.systemui`）
+  - 隐藏方案可选：**新方案**（`NavigationHandle#onDraw`，默认）/ **旧方案**（`MiuiDecorationBottomView#onDraw`，用于存在状态栏跟随问题的版本）
+  - 隐藏后把手势导航栏声明给系统的 `navigationBars` inset 高度归零，**内容直接延伸到屏幕底部**；只改导航栏 inset，不动 `systemGestures` / `mandatorySystemGestures`，底部返回手势热区保持不变
+
+## 息屏显示
+
+- **关闭 AOD 通知光效** — 来通知时不播放波纹 / 粒子动画，通知图标与时钟照常显示（AOD 插件运行在 `com.android.systemui` 进程，需额外探测其插件 ClassLoader）
+
+## 框架能力
+
+- **Hook 封装** — `hookBefore` / `hookAfter` / `hookReplace` / `intercept` / `findAndHook*` / `hookAll*` / `hookClassInitializer` / `invokeOriginal`，可在回调中改写方法参数与返回值，统一句柄管理
+- **原生 Hook 封装** — `NativeHookHelper` / `BaseNativeHook` / `BaseLoad.initNativeHook`，与 Java Hook 对称的一键接入（声明、加载、开关、安全兜底），面向 Rust 应用，详见[原生 Hook 指南](docs/NATIVE_HOOK.md)
+- **版本 / 设备筛选** — 统一的 `HookVersionGate` 与 `deviceScope`：版本支持 `>` `<`、多重规则（AND/OR），可按 Android / HyperOS / MIUI / 应用版本；设备支持手机 / 平板 / 折叠屏区分，可在设置中手动覆盖当前设备类型
+- **安全模式** — 目标应用反复崩溃时自动跳过该应用的 Hook；设置页可逐应用开关并查看崩溃计数
 - **主动申请作用域** — 启用选项时自动为未授权目标申请作用域
 - **DexKit 缓存** — 带 JSON 持久化、版本失效校验与文件锁的 DexKit 缓存，支持 Root 清空
 - **统一配置系统** — 自定义键名、默认值、持久化、跨进程镜像、JSON 导出导入
-- **组件与 Hook 绑定** — 开关 / 箭头 / 下拉 / 滑块 / 复选框 / 单选 / 文本卡片，标题接入全局搜索
-- **设备独占控制** — 配置项声明 `deviceScope`（手机 / 平板 / 折叠屏）后，非白名单设备上**禁用灰显不隐藏**，切换「当前设备类型」实时生效；hook 侧同步跳过
-- **二级页面模板** — 主导航内打开，宽屏继续显示顶部胶囊或左侧导航；支持独立 Activity 入口
-- **应用内检查更新** — 设置页「更新」分区支持启动自动检查与手动检查；发现新版本弹窗展示 Release 更新说明并跳转下载页（仓库地址见 `UpdateChecker.REPO`，需改为自己的仓库）
-- **功能标签页** — 以「功能页 + 子页面搜索」的形态内置每种组件类型的示例，便于快速上手
-- **两种悬浮底栏** — 设置页可切换 `HyperOS 玻璃`（官方 `GlassNavigationBar`）与 `iOS 液态玻璃`（移植自 miuix 官方示例，镜面折射 + 动态高光），窄屏与未启用侧栏的宽屏生效
-- **可切换侧栏** — 宽屏可用 `GlassNavigationRail` 取代底栏，形态可选「顶部胶囊」与「左侧面板」；页面内容按侧栏宽度让位，侧栏玻璃可连续采样页面内容
-- **宽屏全局搜索** — 搜索时可操作顶部胶囊或左侧面板，搜索框和结果随导航栏形变调整位置
-- **默认外观** — 悬浮底栏、宽屏左侧面板、开启背景模糊
-- **渐变模糊统一走 miuix** — 顶栏 / 底栏 / 侧栏的模糊全部由 `drawBackdrop`、`textureBlur`、`progressiveTextureBlur` 与 `BlurDefaults.blurColors` 提供，不再依赖 haze
+- **组件与 Hook 绑定** — 开关 / 箭头 / 下拉 / 滑块 / 复选框 / 单选 / 文本 / 包名列表，标题接入全局搜索
+- **设备独占控制** — 配置项声明 `deviceScope` 后，非白名单设备上禁用灰显不隐藏，切换「当前设备类型」实时生效；hook 侧同步跳过
+- **宽屏与外观** — 底部导航可选 HyperOS 玻璃 / iOS 液态玻璃，宽屏可切换顶部胶囊或左侧面板侧栏；背景模糊与渐变模糊统一由 miuix 提供
+
+<br>
+
+# 作用域
+
+在 LSPosed 中为模块勾选以下作用域后重启对应应用：
+
+| 包名 | 用途 |
+|---|---|
+| `com.android.settings` | 色彩风格高级模式 |
+| `com.android.systemui` | 手势线隐藏、AOD 通知光效 |
+| `system` | 系统进程级功能（按需勾选） |
 
 <br>
 
@@ -134,15 +157,15 @@ $env:KEY_PASSWORD="你的密钥密码"
 
 <br>
 
-# 快速开始
+# 二次开发
 
-1. 修改 `app/build.gradle.kts` 与 `settings.gradle.kts` 中的包名 / 应用名。
-2. 替换应用图标（`res/drawable/ic_launcher_*.xml` 等）。
-3. 修改关于页链接与版权（`strings.xml`）。
-4. 在 `:hook` 模块 `META-INF/xposed/scope.list` 中声明作用域包名。
-5. 新建 `BaseLoad` 并在 `HookEntryRegistry` 中登记目标包。
-6. 新建 `BaseHook` 实现具体 Hook 逻辑。
-7. 在 `featureSpecs()`（或自定义注册处）声明 `OptionSpec`，UI 会自动渲染对应组件；子页面功能可用 `HookSubPage` 并入功能页搜索。
+新增一个功能的最小闭环：
+
+1. 新目标进程时，先在 `:hook` 模块 `META-INF/xposed/scope.list` 声明包名。
+2. 新建 `BaseLoad`，在 `onPackageLoaded` 中按配置键注册 hook，并在 `HookEntryRegistry` 登记。
+3. 新建 `BaseHook`，在 `init()` 中用 `HookHelper` 挂载目标方法；需要改写参数/返回值时用 `HookParam.setArg` / `setResultValue`。
+4. 在 `featureSpecs()` 声明 `OptionSpec`（`key` 与 `BaseHook.key` 一致），UI 自动渲染并上报生效状态。
+5. 需要 DexKit 时覆写 `useDexKit()` 与 `initDexKit()`（缓存自动管理）。
 
 > **需要修改的完整清单（图标、链接、模块元数据、Hook、配置项等）见 [二次开发指南](docs/CUSTOMIZE.md)。**
 
@@ -163,7 +186,7 @@ $env:KEY_PASSWORD="你的密钥密码"
 
 # 参考与致谢
 
-MiuiSettingMod 是个人 Android 模块开发所使用的脚手架模板，开发过程中参考了若干开源项目与其他模块项目，谨向相关作者与贡献者致谢。具体致谢清单统一维护在应用内「关于 → 第三方许可证与致谢」页面，文档不再逐一展开；参考或复刻第三方项目时的合规流程见 [模块开发工作流](docs/WORKFLOW.md)。
+开发过程中参考了若干开源项目与其他模块项目，谨向相关作者与贡献者致谢。具体致谢清单统一维护在应用内「关于 → 第三方许可证与致谢」页面，文档不再逐一展开；参考或复刻第三方项目时的合规流程见 [模块开发工作流](docs/WORKFLOW.md)。
 
 <br>
 

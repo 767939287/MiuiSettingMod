@@ -26,10 +26,12 @@ class SystemUiLoad : BaseLoad() {
         val manual = HookPrefs.getBoolean(HideGestureLineHook.KEY_HIDE, false)
         val auto = HookPrefs.getBoolean(HideGestureLineHook.KEY_AUTO_HIDE, false)
         initHook(HideGestureLineHook(), manual || auto)
+        initHook(AodGlowHook(), HookPrefs.getBoolean(KEY_AOD_GLOW, false))
     }
 
     companion object {
         const val TARGET_PACKAGE = "com.android.systemui"
+        const val KEY_AOD_GLOW = "aod_disable_notification_glow"
     }
 }
 

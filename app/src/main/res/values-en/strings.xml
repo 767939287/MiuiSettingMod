@@ -252,4 +252,8 @@
     <string name="theme_crack_home_enabled_summary">Allow adding and auto-downloading paid widgets</string>
     <string name="theme_crack_system_server_enabled">Theme DRM Rights Check</string>
     <string name="theme_crack_system_server_enabled_summary">Temporarily bypass DRM during theme validation (system reboot required)</string>
+    <!-- Features: always-on display -->
+    <string name="feature_section_aod">Always-on Display</string>
+    <string name="aod_disable_notification_glow">Disable AOD Notification Glow</string>
+    <string name="aod_disable_notification_glow_summary">Skip ripple and particle animations on new notifications while icons and clock keep showing</string>
 </resources>
