@@ -21,9 +21,25 @@ class HookParam(
     var result: Any? = null
     var hasResult: Boolean = false
 
+    /** 被修改过的参数；null 表示未改动。 */
+    internal var modifiedArgs: Array<Any?>? = null
+        private set
+
     fun setResultValue(value: Any?) {
         result = value
         hasResult = true
+    }
+
+    /**
+     * 修改第 [index] 个实参。
+     *
+     * libxposed 的 [XposedInterface.Chain.getArgs] 返回不可变列表，必须通过
+     * `chain.proceed(args)` 传递新参数，因此这里只记录改动，由 [HookHelper.hookBefore]
+     * 在回调结束后统一走 `proceed(新参数)`。仅在 before 回调中有效。
+     */
+    fun setArg(index: Int, value: Any?) {
+        val current = modifiedArgs ?: args.toTypedArray().also { modifiedArgs = it }
+        current[index] = value
     }
 }
 
@@ -89,7 +105,12 @@ object HookHelper {
     ): HookHandle = intercept(executable, priority) { chain ->
         val param = HookParam(executable, chain.thisObject, chain.args)
         callback(param)
-        if (param.hasResult) param.result else chain.proceed()
+        val newArgs = param.modifiedArgs
+        when {
+            param.hasResult -> param.result
+            newArgs != null -> chain.proceed(newArgs)
+            else -> chain.proceed()
+        }
     }
 
     fun hookAfter(

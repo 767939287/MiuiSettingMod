@@ -58,6 +58,15 @@ private fun featureSections(specs: List<OptionSpec>): List<HookSection> = listOf
             specByKey(specs, "gesture_line_hide_method"),
         ),
     ),
+    HookSection(
+        titleRes = R.string.feature_section_theme,
+        specs = listOf(
+            specByKey(specs, "theme_crack_theme_manager_enabled"),
+            specByKey(specs, "theme_crack_personal_assistant_enabled"),
+            specByKey(specs, "theme_crack_home_enabled"),
+            specByKey(specs, "theme_crack_system_server_enabled"),
+        ),
+    ),
 )
 
 /** 功能页的全部配置项（App 启动时注册，供全局搜索与作用域申请使用）。 */
@@ -101,5 +110,41 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         ),
         entryValues = listOf("0", "1"),
         targetPackages = listOf("com.android.systemui"),
+    ),
+    OptionSpec(
+        key = "theme_crack_theme_manager_enabled",
+        type = OptionType.SWITCH,
+        titleRes = R.string.theme_crack_theme_manager_enabled,
+        summaryRes = R.string.theme_crack_theme_manager_enabled_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("com.android.thememanager"),
+        showStatus = true,
+    ),
+    OptionSpec(
+        key = "theme_crack_personal_assistant_enabled",
+        type = OptionType.SWITCH,
+        titleRes = R.string.theme_crack_personal_assistant_enabled,
+        summaryRes = R.string.theme_crack_personal_assistant_enabled_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("com.miui.personalassistant"),
+        showStatus = true,
+    ),
+    OptionSpec(
+        key = "theme_crack_home_enabled",
+        type = OptionType.SWITCH,
+        titleRes = R.string.theme_crack_home_enabled,
+        summaryRes = R.string.theme_crack_home_enabled_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("com.miui.home"),
+        showStatus = true,
+    ),
+    OptionSpec(
+        key = "theme_crack_system_server_enabled",
+        type = OptionType.SWITCH,
+        titleRes = R.string.theme_crack_system_server_enabled,
+        summaryRes = R.string.theme_crack_system_server_enabled_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("system"),
+        showStatus = true,
     ),
 )

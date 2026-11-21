@@ -1,8 +1,12 @@
 package com.darknight.miuisettingmod.hook.base
 
 import com.darknight.miuisettingmod.hook.demo.DemoLoad
+import com.darknight.miuisettingmod.hook.miuihome.MiuiHomeLoad
+import com.darknight.miuisettingmod.hook.personalassistant.PersonalAssistantLoad
 import com.darknight.miuisettingmod.hook.settings.SettingsLoad
+import com.darknight.miuisettingmod.hook.systemserver.SystemServerThemeLoad
 import com.darknight.miuisettingmod.hook.systemui.SystemUiLoad
+import com.darknight.miuisettingmod.hook.thememanager.ThemeManagerLoad
 
 /**
  * 目标 Load 注册表。
@@ -15,6 +19,10 @@ object HookEntryRegistry {
         DemoLoad(),
         SettingsLoad(),
         SystemUiLoad(),
+        ThemeManagerLoad(),
+        PersonalAssistantLoad(),
+        MiuiHomeLoad(),
+        SystemServerThemeLoad(),
     )
 
     fun loadsFor(packageName: String): List<BaseLoad> =

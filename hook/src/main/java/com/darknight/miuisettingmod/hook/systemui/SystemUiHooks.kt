@@ -3,8 +3,11 @@ package com.darknight.miuisettingmod.hook.systemui
 import android.app.ActivityManager
 import android.content.ComponentName
 import android.graphics.Canvas
+import android.graphics.Insets
 import android.os.Handler
 import android.os.Looper
+import android.view.WindowInsets
+import android.view.WindowManager
 import com.darknight.miuisettingmod.hook.base.BaseHook
 import com.darknight.miuisettingmod.hook.base.BaseLoad
 import com.darknight.miuisettingmod.hook.base.PackageTarget
@@ -76,6 +79,8 @@ class HideGestureLineHook : BaseHook() {
             if (autoHide) hookTopActivity(loader)
             hookNewMethod(loader)
         }
+        // 隐藏手势线时统一把导航栏 inset 高度归零，内容直接延伸到底。
+        hookNavBarInset(loader)
     }
 
     /** 下拉框存的是字符串，兼容 int 写入。 */
@@ -150,6 +155,49 @@ class HideGestureLineHook : BaseHook() {
         HookHelper.log("$tag: ${clazz.name}#updateTopActivity hooked (auto hide)")
     }
 
+    /**
+     * 彻底隐藏：把手势导航栏窗口提供给系统的 `navigationBars` insets 高度置 0。
+     *
+     * 仅拦截 `onDraw` 只是不画手势条，窗口仍向系统贡献一个导航栏 insets，
+     * 内容会被「顶起」一段。MIUI 在 `NavigationBar#getBarLayoutParamsForRotation(int)`
+     * 里给 `InsetsFrameProvider` 写入了固定高度，这里在该方法返回后把
+     * `WindowInsets.Type.navigationBars()` 的 provider 改成 0。
+     *
+     * 只改 navigationBars：`systemGestures` / `mandatorySystemGestures`
+     * 属于另外的 provider，底部返回手势不受影响。
+     */
+    private fun hookNavBarInset(loader: ClassLoader?) {
+        val clazz = Reflect.findClassIfExists(NAV_BAR_CLASS, loader)
+        if (clazz == null) {
+            HookHelper.log("$tag: $NAV_BAR_CLASS not found, inset hiding unavailable")
+            return
+        }
+        val method = Reflect.findMethodIfExists(
+            clazz,
+            "getBarLayoutParamsForRotation",
+            Int::class.javaPrimitiveType!!,
+        )
+        if (method == null) {
+            HookHelper.log("$tag: getBarLayoutParamsForRotation not found, inset hiding unavailable")
+            return
+        }
+        HookHelper.hookAfter(method) { param ->
+            if (!hiddenByUser) return@hookAfter
+            val layoutParams = param.result as? WindowManager.LayoutParams ?: return@hookAfter
+            zeroNavigationBarInset(layoutParams)
+        }
+        HookHelper.log("$tag: ${clazz.name}#getBarLayoutParamsForRotation hooked (zero inset)")
+    }
+
+    private fun zeroNavigationBarInset(layoutParams: WindowManager.LayoutParams) {
+        val providers = runCatching { layoutParams.providedInsets }.getOrNull() ?: return
+        providers.forEach { provider ->
+            val type = runCatching { provider.type }.getOrNull() ?: return@forEach
+            if (type != WindowInsets.Type.navigationBars()) return@forEach
+            runCatching { provider.setInsetsSize(Insets.of(0, 0, 0, 0)) }
+        }
+    }
+
     companion object {
         const val KEY_HIDE = "hide_navigation_bar_enabled"
         const val KEY_AUTO_HIDE = "auto_hide_navigation_bar_enabled"
@@ -160,6 +208,8 @@ class HideGestureLineHook : BaseHook() {
 
         private const val MIUI_HOME_PACKAGE = "com.miui.home"
         private const val RESTORE_DELAY_MS = 100L
+        private const val NAV_BAR_CLASS =
+            "com.android.systemui.navigationbar.views.NavigationBar"
         private const val TOP_ACTIVITY_OBSERVER =
             "com.miui.systemui.functions.MiuiTopActivityObserver"
         private const val OLD_DECOR_CLASS =

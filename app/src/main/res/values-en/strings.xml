@@ -241,4 +241,15 @@
     <string name="gesture_line_hide_method_summary">Use the old method on versions where the gesture line follows the status bar</string>
     <string name="gesture_line_hide_method_new">New Method</string>
     <string name="gesture_line_hide_method_old">Old Method</string>
+
+    <!-- Features: theme & paid content -->
+    <string name="feature_section_theme">Theme &amp; Paid Content</string>
+    <string name="theme_crack_theme_manager_enabled">Theme Store Restrictions</string>
+    <string name="theme_crack_theme_manager_enabled_summary">Mark as purchased, zero prices, bypass theme DRM check and large icon rights</string>
+    <string name="theme_crack_personal_assistant_enabled">Paid Widgets in App Vault</string>
+    <string name="theme_crack_personal_assistant_enabled_summary">Bypass paid and purchase-state checks in the widget center</string>
+    <string name="theme_crack_home_enabled">Paid Widgets on Launcher</string>
+    <string name="theme_crack_home_enabled_summary">Allow adding and auto-downloading paid widgets</string>
+    <string name="theme_crack_system_server_enabled">Theme DRM Rights Check</string>
+    <string name="theme_crack_system_server_enabled_summary">Temporarily bypass DRM during theme validation (system reboot required)</string>
 </resources>

@@ -242,4 +242,15 @@
     <string name="gesture_line_hide_method_summary">有状态栏跟随问题的版本请使用旧方案</string>
     <string name="gesture_line_hide_method_new">新方案</string>
     <string name="gesture_line_hide_method_old">旧方案</string>
+
+    <!-- Features: theme & paid content -->
+    <string name="feature_section_theme">主题与付费资源</string>
+    <string name="theme_crack_theme_manager_enabled">主题商店去限制</string>
+    <string name="theme_crack_theme_manager_enabled_summary">标记已购买、价格归零、绕过主题 DRM 校验与大图标授权</string>
+    <string name="theme_crack_personal_assistant_enabled">负一屏付费小组件</string>
+    <string name="theme_crack_personal_assistant_enabled_summary">绕过小组件中心的付费与购买状态校验</string>
+    <string name="theme_crack_home_enabled">桌面付费小组件</string>
+    <string name="theme_crack_home_enabled_summary">允许直接添加并自动下载付费小组件</string>
+    <string name="theme_crack_system_server_enabled">主题 DRM 授权校验</string>
+    <string name="theme_crack_system_server_enabled_summary">仅在主题校验期间临时放行 DRM（需重启系统）</string>
 </resources>
