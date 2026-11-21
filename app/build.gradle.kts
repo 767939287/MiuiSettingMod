@@ -35,8 +35,8 @@ android {
         applicationId = "com.darknight.miuisettingmod"
         minSdk = 35
         targetSdk = 37
-        versionCode = 19
-        versionName = "0.8.2"
+        versionCode = 1
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
