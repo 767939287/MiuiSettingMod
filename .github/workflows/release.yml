@@ -15,7 +15,26 @@ permissions:
   contents: write
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      has_keystore: ${{ steps.check.outputs.has_keystore }}
+    steps:
+      - name: 检查签名密钥
+        id: check
+        env:
+          KS: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KS" ]; then
+            echo "has_keystore=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_keystore=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::未配置 KEYSTORE_BASE64，跳过 Release 构建（请先添加签名相关 Secrets）"
+          fi
+
   build:
+    needs: prepare
+    if: needs.prepare.outputs.has_keystore == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -33,6 +52,14 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: 预装 compileSdk
+        run: |
+          sdkmanager "platforms;android-37.2" || \
+            echo "::warning::platform 37.2 预装失败，交由 AGP 自动下载"
 
       - name: 解码签名密钥
         run: |

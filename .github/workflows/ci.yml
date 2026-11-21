@@ -23,6 +23,14 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: 预装 compileSdk
+        run: |
+          sdkmanager "platforms;android-37.2" || \
+            echo "::warning::platform 37.2 预装失败，交由 AGP 自动下载"
+
       - name: 读取版本号
         id: get_version
         run: |
