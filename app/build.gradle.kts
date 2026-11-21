@@ -43,10 +43,12 @@ android {
 
     signingConfigs {
         create("release") {
+            val storePwd = System.getenv("KEYSTORE_PASSWORD")
             storeFile = file("../release.keystore")
-            storePassword = System.getenv("KEYSTORE_PASSWORD")
-            keyAlias = System.getenv("KEY_ALIAS") ?: "release"
-            keyPassword = System.getenv("KEY_PASSWORD")
+            storePassword = storePwd
+            // CI 里未配置的 secret 会以空字符串注入，需按空值处理，否则默认值不生效。
+            keyAlias = System.getenv("KEY_ALIAS")?.takeIf { it.isNotBlank() } ?: "release"
+            keyPassword = System.getenv("KEY_PASSWORD")?.takeIf { it.isNotBlank() } ?: storePwd
         }
     }
 
