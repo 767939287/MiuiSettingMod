@@ -262,4 +262,6 @@
     <string name="hide_home_dock_enabled_summary">Remove the floating dock at the bottom of the tablet launcher so the swipe-up gesture goes straight to Recents (pad only)</string>
     <string name="expand_home_grid_enabled">Expand Grid by One Row</string>
     <string name="expand_home_grid_enabled_summary">Give the space freed by hiding the dock to the workspace grid, keeping icon size whenever possible (pad only)</string>
+    <string name="home_dock_no_animation_enabled">Disable Dock Pop-up Animation</string>
+    <string name="home_dock_no_animation_enabled_summary">Show the dock instantly when returning home instead of sliding it up from the bottom; the dock itself stays visible (pad only)</string>
 </resources>

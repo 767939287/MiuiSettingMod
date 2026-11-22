@@ -70,6 +70,7 @@ private fun featureSections(specs: List<OptionSpec>): List<HookSection> = listOf
         specs = listOf(
             specByKey(specs, "hide_home_dock_enabled"),
             specByKey(specs, "expand_home_grid_enabled"),
+            specByKey(specs, "home_dock_no_animation_enabled"),
         ),
     ),
     HookSection(
@@ -157,6 +158,17 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         defaultBoolean = false,
         targetPackages = listOf("com.miui.home"),
         dependsOn = "hide_home_dock_enabled",
+        deviceScope = setOf(DeviceType.PAD),
+        hideOnUnsupportedDevice = true,
+        showStatus = true,
+    ),
+    OptionSpec(
+        key = "home_dock_no_animation_enabled",
+        type = OptionType.SWITCH,
+        titleRes = R.string.home_dock_no_animation_enabled,
+        summaryRes = R.string.home_dock_no_animation_enabled_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("com.miui.home"),
         deviceScope = setOf(DeviceType.PAD),
         hideOnUnsupportedDevice = true,
         showStatus = true,

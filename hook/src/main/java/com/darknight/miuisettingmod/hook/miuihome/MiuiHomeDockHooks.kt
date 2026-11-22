@@ -325,6 +325,65 @@ class HomeGridExpandHook : BaseHook() {
 }
 
 /**
+ * 返回桌面时 Dock 不播放弹出动画（Dock 照常显示，只是瞬间到位）。
+ *
+ * 平板 Dock 的每次状态变化都会包成 `Transaction` 交给
+ * `DockAnimationRunner#runAnimation`；该方法在 `!transaction.getAnimated()` 时直接
+ * `applyTranslation(1.0f)` + `applyAlpha(toAlpha)` 跳到终态（原生自带的「无动画」分支），
+ * 所以把 `animated` 改成 false 即可：Dock 保留、没有从底部弹出 / 涏出的位移与透明度过渡。
+ *
+ * 不依赖隐藏 Dock：两项开关互相独立。
+ *
+ * 目标：`com.miui.home`
+ */
+class HomeDockNoAnimationHook : BaseHook() {
+
+    override val key: String = MiuiHomeLoad.KEY_NO_DOCK_ANIMATION
+
+    override val deviceScope: Set<DeviceType> = PAD_ONLY
+
+    override fun init() {
+        val loader = target.classLoader
+        installAfterApplicationReady(tag, loader) { installNoAnimation(loader) }
+    }
+
+    private fun installNoAnimation(loader: ClassLoader?) {
+        val runner = Reflect.findClassIfExists(DOCK_ANIMATION_RUNNER, loader)
+        if (runner == null) {
+            HookHelper.log("$tag: $DOCK_ANIMATION_RUNNER not found, skip")
+            return
+        }
+        // `runAnimation` 是私有方法，且参数类型（Transaction / Function0）在编译期无法引用，
+        // 因此按「方法名 + 参数个数」定位。
+        val runAnimation = runner.declaredMethods.firstOrNull {
+            it.name == RUN_ANIMATION && it.parameterTypes.size == 2
+        }
+        if (runAnimation == null) {
+            HookHelper.log("$tag: $RUN_ANIMATION not found on $DOCK_ANIMATION_RUNNER, skip")
+            return
+        }
+        runAnimation.isAccessible = true
+        HookHelper.intercept(runAnimation, mode = ExceptionMode.PASSTHROUGH) { chain ->
+            runCatching {
+                val transaction = chain.getArg(0) ?: return@runCatching
+                transaction.javaClass.methods
+                    .firstOrNull { it.name == SET_ANIMATED && it.parameterTypes.size == 1 }
+                    ?.invoke(transaction, false)
+            }.onFailure { HookHelper.log("$tag: disable dock animation failed", it) }
+            chain.proceed()
+        }
+        HookHelper.log("$tag: $DOCK_ANIMATION_RUNNER#$RUN_ANIMATION hooked (animated -> false)")
+    }
+
+    companion object {
+        private const val DOCK_ANIMATION_RUNNER =
+            "com.miui.home.launcher.dock.v3.view.DockAnimationRunner"
+        private const val RUN_ANIMATION = "runAnimation"
+        private const val SET_ANIMATED = "setAnimated"
+    }
+}
+
+/**
  * 把实际安装推迟到 `com.miui.home.launcher.Application#onCreate` 之后。
  *
  * 不能在 `onPackageReady` 阶段碰 `DeviceConfig` / `GridController` 这类类：

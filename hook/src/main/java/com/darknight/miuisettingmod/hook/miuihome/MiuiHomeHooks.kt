@@ -18,9 +18,10 @@ class MiuiHomeLoad : BaseLoad() {
         val enabled = HookPrefs.getBoolean(KEY, false)
         initHook(HomePaidWidgetHook(), enabled)
         initHook(HomeAutoDownloadHook(), enabled)
-        // 平板专属：Dock 隐藏 / 网格扩展（非平板由 BaseLoad 按 deviceScope 跳过）。
+        // 平板专属：Dock 隐藏 / 网格扩展 / Dock 无动画（非平板由 BaseLoad 按 deviceScope 跳过）。
         initHook(HomeDockHiddenHook(), HookPrefs.getBoolean(KEY_HIDE_DOCK, false))
         initHook(HomeGridExpandHook(), HookPrefs.getBoolean(KEY_EXPAND_GRID, false))
+        initHook(HomeDockNoAnimationHook(), HookPrefs.getBoolean(KEY_NO_DOCK_ANIMATION, false))
     }
 
     companion object {
@@ -32,6 +33,9 @@ class MiuiHomeLoad : BaseLoad() {
 
         /** 网格向下扩展一行（依赖 Dock 隐藏）。 */
         const val KEY_EXPAND_GRID = "expand_home_grid_enabled"
+
+        /** 返回桌面时 Dock 不播放弹出动画（Dock 保留）。 */
+        const val KEY_NO_DOCK_ANIMATION = "home_dock_no_animation_enabled"
     }
 }
 

@@ -262,4 +262,6 @@
     <string name="hide_home_dock_enabled_summary">移除平板桌面底部的 Dock 悬浮栏，上滑手势直接进入最近任务（仅平板可见）</string>
     <string name="expand_home_grid_enabled">网格向下扩展一行</string>
     <string name="expand_home_grid_enabled_summary">Dock 隐藏后把空出的底部空间交给桌面网格，尽量保持图标尺寸（仅平板可见）</string>
+    <string name="home_dock_no_animation_enabled">Dock 不播放弹出动画</string>
+    <string name="home_dock_no_animation_enabled_summary">从应用返回桌面时 Dock 直接出现，不再有从底部弹出的过渡动画；Dock 本身照常显示（仅平板可见）</string>
 </resources>
