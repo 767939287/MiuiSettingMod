@@ -136,9 +136,14 @@ object HookStatusStore {
 
     private fun readScopedSnapshot(): HookStatusSnapshot {
         val prefs = preferences ?: return HookStatusSnapshot()
-        if (bootCount == INVALID_BOOT_COUNT) return HookStatusSnapshot()
         if (prefs.getLong(KEY_VERSION_CODE, 0L) != versionCode) return HookStatusSnapshot()
-        if (prefs.getInt(KEY_BOOT_COUNT, INVALID_BOOT_COUNT) != bootCount) return HookStatusSnapshot()
+        // `Settings.Global.BOOT_COUNT` 在部分 ROM / 受限制场景下读不到（返回 -1），
+        // 此时不能再按开机号过滤 —— 否则所有上报都会被“丢弃”，状态永远停在「等待启动」。
+        if (bootCount != INVALID_BOOT_COUNT &&
+            prefs.getInt(KEY_BOOT_COUNT, INVALID_BOOT_COUNT) != bootCount
+        ) {
+            return HookStatusSnapshot()
+        }
         return HookStatusSnapshot(
             applied = prefs.getStringSet(KEY_INSTALLED_KEYS, emptySet()).orEmpty(),
             pending = prefs.getStringSet(KEY_PENDING_KEYS, emptySet()).orEmpty(),
