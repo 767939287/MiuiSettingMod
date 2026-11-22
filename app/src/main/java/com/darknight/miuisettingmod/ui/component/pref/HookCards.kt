@@ -1,12 +1,7 @@
 package com.darknight.miuisettingmod.ui.component.pref
 
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -15,7 +10,6 @@ import androidx.compose.ui.unit.dp
 import com.darknight.miuisettingmod.R
 import com.darknight.miuisettingmod.prefs.ConfigState
 import com.darknight.miuisettingmod.prefs.OptionSpec
-import com.darknight.miuisettingmod.xposed.HookStatus
 import com.darknight.miuisettingmod.xposed.HookStatusStore
 import androidx.compose.ui.state.ToggleableState
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -28,48 +22,33 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 /**
  * 副标题：基础文案。
  *
- * 生效状态不再拼进摘要，而是作为彩色标签由 [HookStatusBadge] 渲染。
- * 功能关闭时不显示历史「已生效」证据；但设备不支持 / 作用域未勾选时仍显示灰色「不可用」。
+ * 生效状态徽标已按需求全部隐藏，摘要只展示配置项本身的说明。
  */
 @Composable
 private fun optionSummary(spec: OptionSpec): String? =
     spec.summaryRes.takeIf { it != 0 }?.let { stringResource(it) }
 
 /**
- * 大标题 +（可选）四态状态标签。
+ * 大标题。
  *
- * 标题字号 / 字重与 Miuix `BasicComponent` 默认标题一致；标签紧跟在标题文字后，
- * 标题过长时由标签保持自身宽度、标题自行换行。
- *
- * 开关 / 复选框卡片已改用 Miuix `SwitchPreference` / `CheckboxPreference`，
- * 该标题行仅供下拉、单选、滑块等仍在自绘的卡片复用。
+ * 生效状态徽标已按需求全部隐藏（不再读取 HookStatusStore）；
+ * 标题字号 / 字重与 Miuix `BasicComponent` 默认标题一致。
  */
 @Composable
-private fun HookTitleWithStatus(
+private fun HookTitle(
     title: String,
-    status: HookStatus?,
     enabled: Boolean,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MiuixText(
-            text = title,
-            modifier = Modifier.weight(1f, fill = false),
-            fontSize = MiuixTheme.textStyles.headline1.fontSize,
-            fontWeight = FontWeight.Medium,
-            color = if (enabled) {
-                MiuixTheme.colorScheme.onBackground
-            } else {
-                MiuixTheme.colorScheme.disabledOnSecondaryVariant
-            },
-        )
-        if (status != null) {
-            Spacer(Modifier.width(8.dp))
-            HookStatusBadge(status)
-        }
-    }
+    MiuixText(
+        text = title,
+        fontSize = MiuixTheme.textStyles.headline1.fontSize,
+        fontWeight = FontWeight.Medium,
+        color = if (enabled) {
+            MiuixTheme.colorScheme.onBackground
+        } else {
+            MiuixTheme.colorScheme.disabledOnSecondaryVariant
+        },
+    )
 }
 
 @Composable
@@ -96,9 +75,6 @@ fun HookSwitchCard(
     val context = LocalContext.current
     val enabled = rememberOptionEnabled(spec)
     val checked = ConfigState.bool(spec.key, spec.defaultBoolean)
-    val status = rememberHookStatus(spec).takeIf { status ->
-        spec.showStatus && (status == HookStatus.UNAVAILABLE || (enabled && checked))
-    }
 
     fun update(value: Boolean) {
         ConfigState.set(spec.key, value)
@@ -119,9 +95,8 @@ fun HookSwitchCard(
             )
         },
     ) {
-        HookTitleWithStatus(
+        HookTitle(
             title = stringResource(spec.titleRes),
-            status = status,
             enabled = enabled,
         )
         HookSummary(text = optionSummary(spec), enabled = enabled)
@@ -137,9 +112,6 @@ fun HookCheckboxCard(
     val context = LocalContext.current
     val enabled = rememberOptionEnabled(spec)
     val checked = ConfigState.bool(spec.key, spec.defaultBoolean)
-    val status = rememberHookStatus(spec).takeIf { status ->
-        spec.showStatus && (status == HookStatus.UNAVAILABLE || (enabled && checked))
-    }
 
     fun update(value: Boolean) {
         ConfigState.set(spec.key, value)
@@ -159,9 +131,8 @@ fun HookCheckboxCard(
             )
         },
     ) {
-        HookTitleWithStatus(
+        HookTitle(
             title = stringResource(spec.titleRes),
-            status = status,
             enabled = enabled,
         )
         HookSummary(text = optionSummary(spec), enabled = enabled)
