@@ -251,7 +251,7 @@
     <string name="theme_crack_home_enabled">桌面付费小组件</string>
     <string name="theme_crack_home_enabled_summary">允许直接添加并自动下载付费小组件</string>
     <string name="theme_crack_system_server_enabled">主题 DRM 授权校验</string>
-    <string name="theme_crack_system_server_enabled_summary">仅在主题校验期间临时放行 DRM（需重启系统）</string>
+    <string name="theme_crack_system_server_enabled_summary">常驻放行 MIUI 内容 DRM 授权（主题 / 铃声 / 字体等），需重启手机</string>
     <!-- Features: always-on display -->
     <string name="feature_section_aod">息屏显示</string>
     <string name="aod_disable_notification_glow">关闭 AOD 通知光效</string>

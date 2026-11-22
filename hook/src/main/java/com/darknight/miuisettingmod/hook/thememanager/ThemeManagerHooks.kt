@@ -5,6 +5,7 @@ import com.darknight.miuisettingmod.hook.base.BaseHook
 import com.darknight.miuisettingmod.hook.base.BaseLoad
 import com.darknight.miuisettingmod.hook.base.PackageTarget
 import com.darknight.miuisettingmod.hook.dexkit.IDexKit
+import com.darknight.miuisettingmod.hook.dexkit.IDexKitList
 import com.darknight.miuisettingmod.hook.prefs.HookPrefs
 import com.darknight.miuisettingmod.hook.xposed.HookHelper
 import com.darknight.miuisettingmod.hook.xposed.Reflect
@@ -166,32 +167,63 @@ class ThemeManagerDrmResultHook : BaseHook() {
 
     override fun useDexKit(): Boolean = true
 
-    private var targetMethod: Method? = null
+    /** 命中「使用这些字符串」的方法候选，已按返回类型筛过。 */
+    private var targetMethods: List<Method> = emptyList()
 
     override fun initDexKit(): Boolean {
-        val method = optionalMember<Method>(
+        val all = optionalMemberList<Method>(
             MEMBER_KEY,
-            IDexKit { bridge ->
+            IDexKitList { bridge ->
                 bridge.findMethod {
                     matcher { usingStrings(*DRM_STRINGS) }
-                }.firstOrNull()
-                    ?: throw ReflectiveOperationException("theme DRM method not found")
+                }
             },
-        ) ?: return false
-        method.isAccessible = true
-        targetMethod = method
+        )
+        if (all.isEmpty()) {
+            HookHelper.log("$tag: DexKit found no candidate using DRM strings")
+            return false
+        }
+        // 优先返回 `DrmResult` 的方法（真正的校验方法），没有再退化到 boolean 判定方法。
+        // 只取 `first()` 在多个方法命中时不稳定，会偶尔 hook 到无关方法导致破解失效。
+        val drmResultMethods = all.filter { isDrmResultType(it.returnType) }
+        val booleanMethods = all.filter {
+            it.returnType == java.lang.Boolean.TYPE || it.returnType == java.lang.Boolean::class.java
+        }
+        val picked = (drmResultMethods + booleanMethods).distinct().take(MAX_CANDIDATES)
+        if (picked.isEmpty()) {
+            HookHelper.log("$tag: ${all.size} candidate(s) but none returns DrmResult/boolean, skip")
+            return false
+        }
+        picked.forEach { it.isAccessible = true }
+        targetMethods = picked
+        HookHelper.log(
+            "$tag: picked ${picked.size}/${all.size} candidate(s): " +
+                picked.joinToString { "${it.declaringClass.simpleName}#${it.name}" }
+        )
         return true
     }
 
     override fun init() {
-        val method = targetMethod ?: return
-        val success = resolveDrmSuccess() ?: run {
-            HookHelper.log("$tag: DrmResult.DRM_SUCCESS not found, skip")
-            return
+        if (targetMethods.isEmpty()) return
+        val success = resolveDrmSuccess()
+        var installed = 0
+        targetMethods.forEach { method ->
+            runCatching {
+                if (isDrmResultType(method.returnType)) {
+                    val value = success ?: throw IllegalStateException("DRM_SUCCESS not found")
+                    HookHelper.hookAfter(method) { param -> param.setResultValue(value) }
+                } else {
+                    // boolean 判定方法：视为「已授权 / 合法」。
+                    HookHelper.hookAfter(method) { param -> param.setResultValue(true) }
+                }
+                installed++
+            }.onFailure { HookHelper.log("$tag: hook ${method.name} failed", it) }
         }
-        HookHelper.hookAfter(method) { param -> param.setResultValue(success) }
-        HookHelper.log("$tag: ${method.declaringClass.name}#${method.name} -> DRM_SUCCESS")
+        HookHelper.log("$tag: $installed method(s) -> DRM_SUCCESS/true")
     }
+
+    private fun isDrmResultType(type: Class<*>): Boolean =
+        type.name == DRM_RESULT_CLASS || type.simpleName == "DrmResult"
 
     private fun resolveDrmSuccess(): Any? {
         val clazz = Reflect.findClassIfExists(DRM_RESULT_CLASS, target.classLoader) ?: return null
@@ -199,8 +231,12 @@ class ThemeManagerDrmResultHook : BaseHook() {
     }
 
     companion object {
-        private const val MEMBER_KEY = "theme_drm_result"
+        private const val MEMBER_KEY = "theme_drm_result_v2"
         private const val DRM_RESULT_CLASS = "miui.drm.DrmManager\$DrmResult"
+
+        /** 候选上限：避免字符串特征宽泛时把大量无关方法全部替换返回值。 */
+        private const val MAX_CANDIDATES = 8
+
         private val DRM_STRINGS = arrayOf(
             "theme",
             "ThemeManagerTag",
@@ -227,30 +263,40 @@ class LargeIconRightsHook : BaseHook() {
 
     override fun useDexKit(): Boolean = true
 
-    private var targetMethod: Method? = null
+    private var targetMethods: List<Method> = emptyList()
 
     override fun initDexKit(): Boolean {
-        val method = optionalMember<Method>(
+        val methods = optionalMemberList<Method>(
             MEMBER_KEY,
-            IDexKit { bridge ->
+            IDexKitList { bridge ->
                 bridge.findMethod {
                     matcher { usingStrings(*LARGE_ICON_STRINGS) }
-                }.firstOrNull()
-                    ?: throw ReflectiveOperationException("large icon method not found")
+                }
             },
-        ) ?: return false
-        method.isAccessible = true
-        targetMethod = method
+        ).take(MAX_CANDIDATES)
+        if (methods.isEmpty()) {
+            HookHelper.log("$tag: DexKit found no candidate using large icon strings")
+            return false
+        }
+        methods.forEach { it.isAccessible = true }
+        targetMethods = methods
+        HookHelper.log(
+            "$tag: picked ${methods.size} candidate(s): " +
+                methods.joinToString { "${it.declaringClass.simpleName}#${it.name}" }
+        )
         return true
     }
 
     override fun init() {
-        val method = targetMethod ?: return
-        HookHelper.hookBefore(method) { param ->
-            runCatching { writeRightsFile(param.thisObject) }
-                .onFailure { HookHelper.log("$tag: write rights file failed", it) }
+        if (targetMethods.isEmpty()) return
+        // 写授权文件是幂等操作，命中多个候选时逐个挂钩没有副作用。
+        targetMethods.forEach { method ->
+            HookHelper.hookBefore(method) { param ->
+                runCatching { writeRightsFile(param.thisObject) }
+                    .onFailure { HookHelper.log("$tag: write rights file failed", it) }
+            }
         }
-        HookHelper.log("$tag: ${method.declaringClass.name}#${method.name} hooked (rights file)")
+        HookHelper.log("$tag: ${targetMethods.size} method(s) hooked (rights file)")
     }
 
     private fun writeRightsFile(holder: Any?) {
@@ -281,7 +327,8 @@ class LargeIconRightsHook : BaseHook() {
     )
 
     companion object {
-        private const val MEMBER_KEY = "large_icon_rights"
+        private const val MEMBER_KEY = "large_icon_rights_v2"
+        private const val MAX_CANDIDATES = 8
         private const val RESOURCE_CLASS =
             "com.android.thememanager.basemodule.resource.model.Resource"
         private val LARGE_ICON_STRINGS = arrayOf(

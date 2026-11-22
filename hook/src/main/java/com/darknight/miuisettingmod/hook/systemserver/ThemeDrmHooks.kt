@@ -1,12 +1,14 @@
 package com.darknight.miuisettingmod.hook.systemserver
 
+import android.os.Handler
+import android.os.Looper
 import com.darknight.miuisettingmod.hook.base.BaseHook
 import com.darknight.miuisettingmod.hook.base.BaseLoad
 import com.darknight.miuisettingmod.hook.base.PackageTarget
 import com.darknight.miuisettingmod.hook.prefs.HookPrefs
 import com.darknight.miuisettingmod.hook.xposed.HookHelper
 import com.darknight.miuisettingmod.hook.xposed.Reflect
-import io.github.libxposed.api.XposedInterface.HookHandle
+import java.lang.reflect.Method
 
 /**
  * system_server（包名 `android`）的主题相关 hook 入口。
@@ -19,7 +21,7 @@ class SystemServerThemeLoad : BaseLoad() {
 
     override fun onPackageLoaded(target: PackageTarget) {
         initHook(
-            ThemeValidateDrmBypassHook(),
+            ThemeDrmAlwaysBypassHook(),
             HookPrefs.getBoolean(KEY, false),
         )
     }
@@ -31,80 +33,91 @@ class SystemServerThemeLoad : BaseLoad() {
 }
 
 /**
- * 主题校验期间临时放行 DRM 授权检查。
+ * 常驻放行 MIUI 内容 DRM 授权检查（`DrmManager#isLegal`）。
  *
- * MIUI 在 `miui.drm.ThemeReceiver#validateTheme` 里逐个调用
- * `DrmManager#isLegal` 校验主题合法性。这里只在 `validateTheme` 执行的这段时间内
- * 把所有 `isLegal` 重载替换成返回 `DrmResult.DRM_SUCCESS`，执行结束立即卸载，
- * 避免常驻修改系统 DRM 造成其它副作用。
+ * 早期实现只在 `ThemeReceiver#validateTheme` 执行期间临时挂钩，锁屏解锁 / 开机后
+ * 系统会从别的入口（`ThemeManagerService`、异步复检、缓存复检）再次调用 `isLegal`，
+ * 落在临时窗口外就会被判非法，表现为「主题破解偶尔失效」。
+ * 改为在 system_server 里常驻返回 `DRM_SUCCESS`。
+ *
+ * `isLegal` 可能定义在父类上，因此沿继承链收集重载；`DrmManager` 在 system_server
+ * 启动早期尚未加载时按 [RETRY_INTERVAL_MS] 重试。
  */
-class ThemeValidateDrmBypassHook : BaseHook() {
+class ThemeDrmAlwaysBypassHook : BaseHook() {
 
     override val key: String = SystemServerThemeLoad.KEY
 
-    private val lock = Any()
+    @Volatile
+    private var installed = false
 
-    /** 嵌套调用计数（`validateTheme` 可能并发/重入）。 */
-    private var depth = 0
+    private var attempts = 0
 
-    private var activeHooks: List<HookHandle> = emptyList()
+    private var retryHandler: Handler? = null
 
     override fun init() {
+        tryInstall()
+    }
+
+    private fun tryInstall() {
+        if (installed) return
         val loader = target.classLoader
-        val receiver = Reflect.findClassIfExists(THEME_RECEIVER_CLASS, loader)
-        if (receiver == null) {
-            HookHelper.log("$tag: $THEME_RECEIVER_CLASS not found, skip")
+        val manager = Reflect.findClassIfExists(DRM_MANAGER_CLASS, loader)
+        if (manager == null) {
+            scheduleRetry("$DRM_MANAGER_CLASS not loaded yet")
             return
         }
-        val method = Reflect.findMethodIfExists(receiver, "validateTheme")
-        if (method == null) {
-            HookHelper.log("$tag: validateTheme not found, skip")
+        val success = resolveDrmSuccess(loader)
+        if (success == null) {
+            scheduleRetry("DRM_SUCCESS not found")
             return
         }
-        HookHelper.intercept(method) { chain ->
-            installDrmHooks(loader)
-            try {
-                chain.proceed()
-            } finally {
-                releaseDrmHooks()
-            }
+        val methods = collectIsLegalMethods(manager)
+        if (methods.isEmpty()) {
+            scheduleRetry("no isLegal overload on ${manager.name}")
+            return
         }
-        HookHelper.log("$tag: ${receiver.name}#validateTheme hooked")
+        var count = 0
+        methods.forEach { method ->
+            runCatching {
+                method.isAccessible = true
+                HookHelper.hookReplace(method) { success }
+                count++
+            }.onFailure { HookHelper.log("$tag: hook ${method.name} failed", it) }
+        }
+        if (count == 0) {
+            scheduleRetry("hook installation failed")
+            return
+        }
+        installed = true
+        HookHelper.log("$tag: ${manager.name} $count isLegal overload(s) -> DRM_SUCCESS (always)")
     }
 
-    private fun installDrmHooks(loader: ClassLoader?) {
-        synchronized(lock) {
-            if (depth++ > 0) return
-            val manager = Reflect.findClassIfExists(DRM_MANAGER_CLASS, loader)
-            if (manager == null) {
-                HookHelper.log("$tag: $DRM_MANAGER_CLASS not found")
-                return
-            }
-            val success = resolveDrmSuccess(loader)
-            if (success == null) {
-                HookHelper.log("$tag: DRM_SUCCESS not found")
-                return
-            }
-            activeHooks = manager.declaredMethods
-                .filter { it.name == "isLegal" }
-                .map { method ->
-                    method.isAccessible = true
-                    HookHelper.hookReplace(method) { success }
+    private fun scheduleRetry(reason: String) {
+        if (installed) return
+        if (attempts >= MAX_ATTEMPTS) {
+            HookHelper.log("$tag: giving up after $attempts attempt(s): $reason")
+            return
+        }
+        attempts++
+        if (attempts == 1) HookHelper.log("$tag: waiting for DRM class: $reason")
+        val handler = retryHandler ?: Handler(Looper.getMainLooper()).also { retryHandler = it }
+        handler.postDelayed({ tryInstall() }, RETRY_INTERVAL_MS)
+    }
+
+    /** 沿继承链收集 `isLegal` 重载（`declaredMethods` 不含父类）。 */
+    private fun collectIsLegalMethods(clazz: Class<*>): List<Method> {
+        val collected = LinkedHashMap<String, Method>()
+        var current: Class<*>? = clazz
+        while (current != null && current != Any::class.java) {
+            current.declaredMethods
+                .filter { it.name == IS_LEGAL }
+                .forEach { method ->
+                    val signature = method.parameterTypes.joinToString(",") { it.name }
+                    collected.putIfAbsent(signature, method)
                 }
-            if (activeHooks.isEmpty()) {
-                HookHelper.log("$tag: no isLegal overload found on ${manager.name}")
-            }
+            current = current.superclass
         }
-    }
-
-    private fun releaseDrmHooks() {
-        synchronized(lock) {
-            if (depth <= 0) return
-            depth--
-            if (depth > 0) return
-            activeHooks.forEach { runCatching { it.unhook() } }
-            activeHooks = emptyList()
-        }
+        return collected.values.toList()
     }
 
     /** `DrmResult.DRM_SUCCESS` 枚举常量（兼容独立类与内部类两种声明方式）。 */
@@ -119,11 +132,17 @@ class ThemeValidateDrmBypassHook : BaseHook() {
     }
 
     companion object {
-        private const val THEME_RECEIVER_CLASS = "miui.drm.ThemeReceiver"
         private const val DRM_MANAGER_CLASS = "miui.drm.DrmManager"
+        private const val IS_LEGAL = "isLegal"
         private val DRM_RESULT_CLASSES = listOf(
             "miui.drm.DrmManager\$DrmResult",
             "miui.drm.DrmResult",
         )
+
+        /** 类/枚举暂时不可用时的重试间隔。 */
+        private const val RETRY_INTERVAL_MS = 2_000L
+
+        /** 最多重试次数（2 秒 × 30 ≈ 1 分钟）。 */
+        private const val MAX_ATTEMPTS = 30
     }
 }
