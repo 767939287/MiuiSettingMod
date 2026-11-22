@@ -256,4 +256,10 @@
     <string name="feature_section_aod">Always-on Display</string>
     <string name="aod_disable_notification_glow">Disable AOD Notification Glow</string>
     <string name="aod_disable_notification_glow_summary">Skip ripple and particle animations on new notifications while icons and clock keep showing</string>
+    <!-- Features: home screen (pad only) -->
+    <string name="feature_section_home">Home Screen</string>
+    <string name="hide_home_dock_enabled">Hide Home Dock</string>
+    <string name="hide_home_dock_enabled_summary">Remove the floating dock at the bottom of the tablet launcher so the swipe-up gesture goes straight to Recents (pad only)</string>
+    <string name="expand_home_grid_enabled">Expand Grid by One Row</string>
+    <string name="expand_home_grid_enabled_summary">Give the space freed by hiding the dock to the workspace grid, keeping icon size whenever possible (pad only)</string>
 </resources>

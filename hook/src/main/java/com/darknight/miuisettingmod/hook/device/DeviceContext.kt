@@ -102,7 +102,12 @@ data class DeviceContext(
             val miuiTablet = runCatching {
                 Class.forName("miui.os.Build").getField("IS_TABLET").getBoolean(null)
             }.getOrDefault(false)
-            val tablet = miuiTablet || smallest >= TABLET_MIN_WIDTH_DP
+            val characteristics = getProp("ro.build.characteristics")
+            // 与 MiuiHomeMod 一致：以最小宽度为准，`ro.build.characteristics` 含 tablet 作为兜底
+            // （Android 17 上该属性可能因 SELinux 权限限制读不到，所以只做补充）。
+            val tablet = miuiTablet ||
+                smallest >= TABLET_MIN_WIDTH_DP ||
+                characteristics.contains("tablet")
 
             val type = when {
                 miuiTablet -> DeviceType.PAD
@@ -122,7 +127,7 @@ data class DeviceContext(
                 isFlip = flip,
                 isRear = rear,
                 multiDisplayType = multi,
-                characteristics = getProp("ro.build.characteristics"),
+                characteristics = characteristics,
             )
         }
 

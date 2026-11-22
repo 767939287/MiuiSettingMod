@@ -6,6 +6,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.darknight.miuisettingmod.R
+import com.darknight.miuisettingmod.hook.device.DeviceType
 import com.darknight.miuisettingmod.prefs.OptionSpec
 import com.darknight.miuisettingmod.prefs.OptionType
 import com.darknight.miuisettingmod.ui.component.pref.HookOptionsPage
@@ -62,6 +63,13 @@ private fun featureSections(specs: List<OptionSpec>): List<HookSection> = listOf
         titleRes = R.string.feature_section_aod,
         specs = listOf(
             specByKey(specs, "aod_disable_notification_glow"),
+        ),
+    ),
+    HookSection(
+        titleRes = R.string.feature_section_home,
+        specs = listOf(
+            specByKey(specs, "hide_home_dock_enabled"),
+            specByKey(specs, "expand_home_grid_enabled"),
         ),
     ),
     HookSection(
@@ -124,6 +132,33 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         summaryRes = R.string.aod_disable_notification_glow_summary,
         defaultBoolean = false,
         targetPackages = listOf("com.android.systemui"),
+        // 平板没有息屏显示：直接隐藏整块分区。
+        deviceScope = setOf(DeviceType.PHONE, DeviceType.FOLD),
+        hideOnUnsupportedDevice = true,
+        showStatus = true,
+    ),
+    OptionSpec(
+        key = "hide_home_dock_enabled",
+        type = OptionType.SWITCH,
+        titleRes = R.string.hide_home_dock_enabled,
+        summaryRes = R.string.hide_home_dock_enabled_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("com.miui.home"),
+        // 平板专属（手机 / 折叠屏隐藏）。
+        deviceScope = setOf(DeviceType.PAD),
+        hideOnUnsupportedDevice = true,
+        showStatus = true,
+    ),
+    OptionSpec(
+        key = "expand_home_grid_enabled",
+        type = OptionType.SWITCH,
+        titleRes = R.string.expand_home_grid_enabled,
+        summaryRes = R.string.expand_home_grid_enabled_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("com.miui.home"),
+        dependsOn = "hide_home_dock_enabled",
+        deviceScope = setOf(DeviceType.PAD),
+        hideOnUnsupportedDevice = true,
         showStatus = true,
     ),
     OptionSpec(

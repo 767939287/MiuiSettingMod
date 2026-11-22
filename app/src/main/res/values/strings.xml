@@ -256,4 +256,10 @@
     <string name="feature_section_aod">息屏显示</string>
     <string name="aod_disable_notification_glow">关闭 AOD 通知光效</string>
     <string name="aod_disable_notification_glow_summary">来通知时不播放波纹 / 粒子动画，图标与时钟照常显示</string>
+    <!-- Features: home screen (pad only) -->
+    <string name="feature_section_home">桌面</string>
+    <string name="hide_home_dock_enabled">隐藏桌面 Dock 栏</string>
+    <string name="hide_home_dock_enabled_summary">移除平板桌面底部的 Dock 悬浮栏，上滑手势直接进入最近任务（仅平板可见）</string>
+    <string name="expand_home_grid_enabled">网格向下扩展一行</string>
+    <string name="expand_home_grid_enabled_summary">Dock 隐藏后把空出的底部空间交给桌面网格，尽量保持图标尺寸（仅平板可见）</string>
 </resources>

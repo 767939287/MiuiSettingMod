@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.darknight.miuisettingmod.R
+import com.darknight.miuisettingmod.hook.device.DeviceType
 import com.darknight.miuisettingmod.ui.component.AppSectionCard
 import com.darknight.miuisettingmod.prefs.ConfigState
 import com.darknight.miuisettingmod.prefs.OptionRegistry
@@ -80,6 +81,24 @@ private fun flattenSubPages(
 ): List<Pair<HookSubPage, List<Int>>> = subPages.flatMap { subPage ->
     val path = prefix + subPage.titleRes
     listOf(subPage to path) + flattenSubPages(subPage.subPages, path)
+}
+
+/**
+ * 递归剔除当前设备形态上被隐藏的配置项。
+ *
+ * 子页面内全部配置项都被隐藏时，该子页面不再参与搜索。
+ */
+private fun filterHiddenSpecs(
+    subPages: List<HookSubPage>,
+    deviceType: DeviceType,
+): List<HookSubPage> = subPages.mapNotNull { subPage ->
+    val specs = subPage.specs.filterNot { isHiddenOnDevice(it, deviceType) }
+    val children = filterHiddenSpecs(subPage.subPages, deviceType)
+    when {
+        specs.isEmpty() && children.isEmpty() -> null
+        specs.size == subPage.specs.size && children.size == subPage.subPages.size -> subPage
+        else -> subPage.copy(specs = specs, subPages = children)
+    }
 }
 
 /** 分区标题：默认仅渲染 `titleRes`；`titleEn` 非空时拼接为 `中文（English）`（仅示例 / API 展示用）。 */
@@ -144,11 +163,25 @@ fun HookOptionsPage(
         ).toPx()
     }
 
+    // 当前设备形态：声明了 hideOnUnsupportedDevice 的项在非白名单设备上不渲染、不进搜索。
+    val deviceType = rememberEffectiveDeviceType()
+    val visibleSections = remember(sections, deviceType) {
+        sections.mapNotNull { section ->
+            val specs = section.specs.filterNot { isHiddenOnDevice(it, deviceType) }
+            when {
+                specs.isEmpty() -> null
+                specs.size == section.specs.size -> section
+                else -> section.copy(specs = specs)
+            }
+        }
+    }
+    val visibleSubPages = remember(subPages, deviceType) { filterHiddenSpecs(subPages, deviceType) }
+
     // 递归展开子页面（记录标题路径），供搜索 / 包名汇总 / 注册使用。
-    val flatSubPages = remember(subPages) { flattenSubPages(subPages) }
+    val flatSubPages = remember(visibleSubPages) { flattenSubPages(visibleSubPages) }
 
     // 汇总「包名列表」选项中的包名，并叠加二次开发注入的自定义包名。
-    val allSpecs = sections.flatMap { it.specs } + flatSubPages.flatMap { it.first.specs }
+    val allSpecs = visibleSections.flatMap { it.specs } + flatSubPages.flatMap { it.first.specs }
     val configActionPackages = allSpecs
         .filter { it.type == OptionType.PACKAGE_LIST }
         .flatMap { parsePackageList(ConfigState.string(it.key, it.defaultString)) }
@@ -157,9 +190,9 @@ fun HookOptionsPage(
     }
 
     // 配置键 → 搜索目标（本页分区 / 子页面路径），含滑块主开关等被引用的键。
-    val searchTargets = remember(sections, flatSubPages) {
+    val searchTargets = remember(visibleSections, flatSubPages) {
         buildMap<String, SearchTarget> {
-            sections.forEach { section ->
+            visibleSections.forEach { section ->
                 section.specs.forEach { spec ->
                     put(spec.key, SearchTarget.Section(section))
                     spec.masterKey?.let { put(it, SearchTarget.Section(section)) }
@@ -174,14 +207,14 @@ fun HookOptionsPage(
         }
     }
 
-    LaunchedEffect(sections, flatSubPages) {
+    LaunchedEffect(visibleSections, flatSubPages) {
         OptionRegistry.registerAll(allSpecs)
     }
 
     // 搜索结果摘要：把「配置键 → 分区 / 子页面路径」登记给全局搜索界面。
-    LaunchedEffect(sections, flatSubPages) {
+    LaunchedEffect(visibleSections, flatSubPages) {
         val labels = buildMap<String, List<Int>> {
-            sections.forEach { section ->
+            visibleSections.forEach { section ->
                 section.specs.forEach { spec ->
                     put(spec.key, listOf(section.titleRes))
                     spec.masterKey?.let { put(it, listOf(section.titleRes)) }
@@ -202,7 +235,7 @@ fun HookOptionsPage(
         val key = externalSearchKey ?: return@LaunchedEffect
         when (val target = searchTargets[key]) {
             is SearchTarget.Section -> {
-                val index = sections.indexOf(target.section)
+                val index = visibleSections.indexOf(target.section)
                 val offset = if (topContent != null) 1 else 0
                 listState.animateScrollToItem(offset + index)
                 // animateScrollToItem 是程序化滚动，不经过 nestedScroll，顶栏不会像手指下滑那样
@@ -253,7 +286,7 @@ fun HookOptionsPage(
             item(key = "top_content") { topContent() }
         }
 
-        sections.forEachIndexed { index, section ->
+        visibleSections.forEachIndexed { index, section ->
             item(key = section.titleRes) {
                 HookSectionCard(
                     section = section,

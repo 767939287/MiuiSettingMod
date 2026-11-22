@@ -17,6 +17,8 @@ import com.darknight.miuisettingmod.hook.device.DeviceType
  * @param entryValues 与 [entryResIds] 对应的取值
  * @param targetPackages 依赖的目标包（用于作用域申请）
  * @param deviceScope 设备形态白名单（手机 / 平板 / 折叠屏）；为空表示各设备通用。非白名单设备上组件**禁用不隐藏**，改动设备类型后实时生效
+ * @param hideOnUnsupportedDevice 设备形态不在 [deviceScope] 白名单内时直接**隐藏**该组件（不渲染、不进搜索）；
+ *   默认 false 表示禁用灰显。分区内全部组件都被隐藏时，分区标题也不渲染
  * @param showStatus 是否在标题后展示四态 Hook 徽标（「等待启动 / 已生效 / 未生效 / 不可用」；灰色仅由作用域未勾选或设备类型不匹配决定）
  * @param dependsOn 依赖的配置键；为空表示无依赖
  * @param dependsOnValue 依赖键需要等于该布尔值时才启用
@@ -41,6 +43,7 @@ data class OptionSpec(
     val entryValues: List<String> = emptyList(),
     val targetPackages: List<String> = emptyList(),
     val deviceScope: Set<DeviceType>? = null,
+    val hideOnUnsupportedDevice: Boolean = false,
     val showStatus: Boolean = false,
     val dependsOn: String? = null,
     val dependsOnValue: Boolean = true,

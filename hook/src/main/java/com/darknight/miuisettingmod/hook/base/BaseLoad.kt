@@ -1,6 +1,7 @@
 package com.darknight.miuisettingmod.hook.base
 
 import com.darknight.miuisettingmod.hook.dexkit.DexKitCacheManager
+import com.darknight.miuisettingmod.hook.device.DeviceContext
 import com.darknight.miuisettingmod.hook.nativehook.BaseNativeHook
 import com.darknight.miuisettingmod.hook.rule.HookSkippedException
 import com.darknight.miuisettingmod.hook.rule.VersionContext
@@ -66,6 +67,14 @@ abstract class BaseLoad {
 
     private fun install(hook: BaseHook) {
         val target = currentTarget ?: return
+        // 设备形态不匹配的 hook 直接跳过，且完全不参与状态上报：
+        // App 侧在该设备上本就隐藏（或灰显），上报失败记录反而会误导。
+        if (!hook.supportedOnCurrentDevice()) {
+            HookHelper.log(
+                "${hook.tag} skipped: device ${DeviceContext.current.type} not in ${hook.deviceScope}"
+            )
+            return
+        }
         val keys = listOf(hook.key)
         keys.forEach { HookStatusReporter.markEvaluated(it) }
         try {

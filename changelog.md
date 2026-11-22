@@ -1,5 +1,24 @@
 # 更新日志
 
+## 1.2.0
+
+> 发布于 2026-11-21
+
+### 新增
+
+- **隐藏桌面 Dock 栏（平板）**：移除平板桌面底部的 Dock 悬浮栏，上滑手势直接进入最近任务；移植自 MiuiHomeMod，完整保留 Dock 控制器生命周期，不跳过 `initialize()`。
+- **网格向下扩展一行（平板）**：Dock 隐藏后把空出的底部空间交给桌面网格，多放一行图标，图标尺寸尽量保持不变。
+- **配置项按设备隐藏**：`deviceScope` 之外的设备上支持直接隐藏（不只是灰显），切换「当前设备类型」实时生效，隐藏项也不会出现在搜索结果里。
+
+### 变更
+
+- **息屏显示按设备隐藏**：AOD 功能在平板上隐藏（平板没有 AOD），手机 / 折叠屏照常显示；SystemUI 侧在平板上也不再安装对应的 hook，不再上报该配置键。
+- **平板判定**：最小宽度之外补上 `ro.build.characteristics` 含 tablet 的兜底（折叠屏判定优先级不变）。
+
+### 修复
+
+- 修复 system_server 启动早期上报 Hook 状态时的 `NullPointerException`：此时 `ActivityThread` 已能给出 system context，但 AMS 尚未就绪，`sendBroadcast` 会因 `IActivityManager` 为 null 抛异常。现在会等系统就绪（AMS 已注册且 `systemReady`）后再补发，开机日志不再有该报错，状态上报也不再丢失。
+
 ## 1.1.0
 
 > 发布于 2026-11-21

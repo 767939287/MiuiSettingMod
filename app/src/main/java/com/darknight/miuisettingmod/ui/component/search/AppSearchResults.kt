@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.darknight.miuisettingmod.R
 import com.darknight.miuisettingmod.ui.component.appTopBarSafeInsets
+import com.darknight.miuisettingmod.ui.component.pref.isHiddenOnDevice
+import com.darknight.miuisettingmod.ui.component.pref.rememberEffectiveDeviceType
 import com.darknight.miuisettingmod.prefs.OptionRegistry
 import com.darknight.miuisettingmod.prefs.OptionSpec
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -62,7 +64,11 @@ fun AppSearchResults(
     searchTopPadding: () -> Dp = { 0.dp },
 ) {
     val context = LocalContext.current
-    val results = remember(query) { OptionRegistry.search(context, query) }
+    val deviceType = rememberEffectiveDeviceType()
+    // 当前设备形态上被隐藏的功能（如平板上的 AOD）不参与搜索，避免搜到后跳不过去。
+    val results = remember(query, deviceType) {
+        OptionRegistry.search(context, query).filterNot { isHiddenOnDevice(it, deviceType) }
+    }
     if (query.isBlank()) return
     val resultsTop = appTopBarSafeInsets().asPaddingValues().calculateTopPadding() +
         GlassSearchOverlayDefaults.BarHeight + GlassSearchOverlayDefaults.VerticalPadding * 2

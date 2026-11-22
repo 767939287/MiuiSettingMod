@@ -40,6 +40,13 @@ object HookStatusReporter {
     @Volatile
     private var deferredRetryScheduled = false
 
+    /** 系统侧（AMS）是否已可接收广播；确认可用了就不再重复探测。 */
+    @Volatile
+    private var broadcastReadyCached = false
+
+    /** 延迟重试轮次，用于收敛重试次数。 */
+    private var retryCount = 0
+
     /** 记录一个本进程实际尝试安装的配置键（无论成功或失败）。 */
     @Synchronized
     fun markEvaluated(key: String) {
@@ -71,12 +78,10 @@ object HookStatusReporter {
         pendingSource = sourcePackage to sourceProcess
         if (evaluatedKeys.isEmpty()) return
         val context = currentApplication() ?: systemContext()
-        if (context != null) {
-            reportIfPending(context)
-        } else {
-            ensureAttachHook()
-            scheduleDeferredRetry()
-        }
+        if (context != null && reportIfPending(context)) return
+        // 上下文拿不到，或系统尚未就绪（system_server 启动早期）：补挂兜底钩子并轮询重试。
+        if (context == null) ensureAttachHook()
+        scheduleDeferredRetry()
     }
 
     @Synchronized
@@ -85,6 +90,8 @@ object HookStatusReporter {
         evaluatedKeys.clear()
         failedKeys.clear()
         reported = false
+        retryCount = 0
+        deferredRetryScheduled = false
     }
 
     /** 挂载 `Application.attach(Context)`，在进程上下文就绪后补发一次状态。 */
@@ -99,7 +106,7 @@ object HookStatusReporter {
             HookHelper.intercept(attach) { chain ->
                 val result = chain.proceed()
                 val context = (chain.getArg(0) as? Context)?.let { it.applicationContext ?: it }
-                if (context != null) reportIfPending(context)
+                if (context != null && !reportIfPending(context)) scheduleDeferredRetry()
                 result
             }
         } catch (t: Throwable) {
@@ -108,11 +115,23 @@ object HookStatusReporter {
         }
     }
 
+    /**
+     * 上下文与系统就绪条件都满足时上报一次。
+     *
+     * @return 是否已完成上报（成功或此前已上报）；false 表示需要继续等待重试。
+     */
     @Synchronized
-    private fun reportIfPending(context: Context) {
-        val source = pendingSource ?: return
-        if (reported || evaluatedKeys.isEmpty()) return
-        report(
+    private fun reportIfPending(context: Context): Boolean {
+        val source = pendingSource ?: return false
+        if (reported) return true
+        if (evaluatedKeys.isEmpty()) return false
+        // system_server 启动早期（startBootstrapServices 之前）ActivityThread 已经能给出
+        // system context，但 AMS 还没注册，sendBroadcast 会因 IActivityManager 为 null 抛 NPE。
+        if (!broadcastReady()) {
+            HookHelper.log("hook status: waiting for system ready @ ${source.second}")
+            return false
+        }
+        reported = report(
             context = context,
             sourcePackage = source.first,
             sourceProcess = source.second,
@@ -120,9 +139,10 @@ object HookStatusReporter {
             evaluated = ArrayList(evaluatedKeys),
             failed = ArrayList(failedKeys),
         )
-        reported = true
+        return reported
     }
 
+    /** @return 广播是否成功发出。 */
     private fun report(
         context: Context,
         sourcePackage: String,
@@ -130,8 +150,8 @@ object HookStatusReporter {
         installed: ArrayList<String>,
         evaluated: ArrayList<String>,
         failed: ArrayList<String>,
-    ) {
-        try {
+    ): Boolean {
+        return try {
             val intent = Intent(HookStatusContract.ACTION_HOOKS_ACTIVE)
                 .setComponent(
                     ComponentName(
@@ -158,9 +178,46 @@ object HookStatusReporter {
             HookHelper.log(
                 "hook status reported: installed=$installed failed=$failed @ $sourceProcess"
             )
+            true
         } catch (t: Throwable) {
             HookHelper.log("hook status report failed @ $sourceProcess", t)
+            false
         }
+    }
+
+    /**
+     * 系统是否已经能接收广播。
+     *
+     * - system_server 早期（`startBootstrapServices` 之前）：`ActivityManager.getService()`
+     *   为 null，此时 `sendBroadcast` 会在 `ContextImpl` 里对空的 `IActivityManager` 抛 NPE；
+     * - AMS 已注册但尚未 `systemReady`：广播只会发给已注册的 receiver，清单静态接收器收不到；
+     * - 普通 App 进程：AMS 早已就绪，一次通过后走缓存。
+     */
+    @SuppressLint("PrivateApi", "DiscouragedPrivateApi")
+    private fun broadcastReady(): Boolean {
+        if (broadcastReadyCached) return true
+        val activityManager = runCatching {
+            Class.forName("android.app.ActivityManager")
+                .getDeclaredMethod("getService")
+                .apply { isAccessible = true }
+                .invoke(null)
+        }.getOrNull() ?: return false
+        // 优先问系统自身：`ActivityManager.isSystemReady()` 在 system_server 进程里读本地标志，
+        // 普通进程走一次 binder 调用。拿不到（个别 ROM 裁掉）就按已注册即可用放行，
+        // 避免永远不上报。
+        val ready = runCatching {
+            Class.forName("android.app.ActivityManager")
+                .getDeclaredMethod("isSystemReady")
+                .apply { isAccessible = true }
+                .invoke(null) as? Boolean
+        }.getOrNull()
+            ?: runCatching {
+                activityManager.javaClass.getMethod("isSystemReady")
+                    .invoke(activityManager) as? Boolean
+            }.getOrNull()
+            ?: true
+        if (ready) broadcastReadyCached = true
+        return ready
     }
 
     @SuppressLint("PrivateApi")
@@ -191,17 +248,39 @@ object HookStatusReporter {
         null
     }.getOrNull()
 
-    /** 延迟补发一次（系统上下文通常会在 system_server 启动稍后创建）。 */
+    /**
+     * 轮询等待系统就绪后补发。
+     *
+     * system_server 在 `onSystemServerStarting` 阶段既没有 Application，AMS 也可能还没注册，
+     * 因此不能只等一次：按 [DEFERRED_RETRY_MS] 轮询，最多 [MAX_RETRIES] 轮。
+     */
     @Synchronized
     private fun scheduleDeferredRetry() {
         if (deferredRetryScheduled) return
+        if (reported || pendingSource == null) return
+        if (retryCount >= MAX_RETRIES) {
+            HookHelper.log("hook status: giving up after $retryCount retries")
+            return
+        }
         deferredRetryScheduled = true
-        runCatching {
-            Handler(Looper.getMainLooper()).postDelayed({
-                val context = currentApplication() ?: systemContext() ?: return@postDelayed
-                reportIfPending(context)
-            }, DEFERRED_RETRY_MS)
-        }.onFailure { HookHelper.log("hook status: deferred retry unavailable", it) }
+        val posted = runCatching {
+            Handler(Looper.getMainLooper()).postDelayed({ retryOnce() }, DEFERRED_RETRY_MS)
+        }.isSuccess
+        if (!posted) {
+            deferredRetryScheduled = false
+            HookHelper.log("hook status: deferred retry unavailable")
+        }
+    }
+
+    @Synchronized
+    private fun retryOnce() {
+        deferredRetryScheduled = false
+        retryCount++
+        if (reported || pendingSource == null) return
+        val context = currentApplication() ?: systemContext()
+        if (context == null || !reportIfPending(context)) {
+            scheduleDeferredRetry()
+        }
     }
 
     private fun moduleVersionCode(context: Context): Long = runCatching {
@@ -211,4 +290,7 @@ object HookStatusReporter {
     }.getOrDefault(0L)
 
     private const val DEFERRED_RETRY_MS = 5_000L
+
+    /** 最多重试轮次（5 秒 × 24 ≈ 2 分钟，足够覆盖 system_server 启动）。 */
+    private const val MAX_RETRIES = 24
 }

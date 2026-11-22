@@ -37,6 +37,23 @@ fun rememberDeviceScopeEnabled(spec: OptionSpec): Boolean {
 }
 
 /**
+ * 该配置项是否应在指定设备形态上直接隐藏（[OptionSpec.hideOnUnsupportedDevice]）。
+ *
+ * 与「禁用灰显」的区别：隐藏项不渲染、不进搜索、不注册到 [OptionRegistry]。
+ */
+fun isHiddenOnDevice(spec: OptionSpec, deviceType: DeviceType): Boolean {
+    if (!spec.hideOnUnsupportedDevice) return false
+    val scope = spec.deviceScope
+    if (scope.isNullOrEmpty()) return false
+    return deviceType !in scope
+}
+
+/** [isHiddenOnDevice] 的 Composable 版本，跟随「当前设备类型」实时重组。 */
+@Composable
+fun rememberDeviceScopeHidden(spec: OptionSpec): Boolean =
+    isHiddenOnDevice(spec, rememberEffectiveDeviceType())
+
+/**
  * 解析依赖项：沿 [OptionSpec.dependsOn] 链向上逐级校验，任一级未满足即禁用（传递依赖）。
  *
  * 例如「笔记」依赖「应用专属适配」，「应用专属适配」依赖顶栏总开关；顶栏总开关关闭时，

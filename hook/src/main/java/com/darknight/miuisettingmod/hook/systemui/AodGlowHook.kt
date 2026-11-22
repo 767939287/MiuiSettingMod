@@ -4,6 +4,7 @@ import android.content.ContextWrapper
 import android.os.Handler
 import android.os.Looper
 import com.darknight.miuisettingmod.hook.base.BaseHook
+import com.darknight.miuisettingmod.hook.device.DeviceType
 import com.darknight.miuisettingmod.hook.xposed.HookHelper
 import com.darknight.miuisettingmod.hook.xposed.Reflect
 import io.github.libxposed.api.XposedInterface.ExceptionMode
@@ -32,6 +33,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 class AodGlowHook : BaseHook() {
 
     override val key: String = SystemUiLoad.KEY_AOD_GLOW
+
+    /** 平板没有息屏显示，直接不安装（手机 / 折叠屏照常）。 */
+    override val deviceScope: Set<DeviceType> =
+        setOf(DeviceType.PHONE, DeviceType.FOLD)
 
     /** 目标方法是否已挂上 hook。 */
     private val installed = AtomicBoolean(false)

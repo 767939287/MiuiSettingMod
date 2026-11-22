@@ -18,11 +18,20 @@ class MiuiHomeLoad : BaseLoad() {
         val enabled = HookPrefs.getBoolean(KEY, false)
         initHook(HomePaidWidgetHook(), enabled)
         initHook(HomeAutoDownloadHook(), enabled)
+        // 平板专属：Dock 隐藏 / 网格扩展（非平板由 BaseLoad 按 deviceScope 跳过）。
+        initHook(HomeDockHiddenHook(), HookPrefs.getBoolean(KEY_HIDE_DOCK, false))
+        initHook(HomeGridExpandHook(), HookPrefs.getBoolean(KEY_EXPAND_GRID, false))
     }
 
     companion object {
         const val TARGET_PACKAGE = "com.miui.home"
         const val KEY = "theme_crack_home_enabled"
+
+        /** 隐藏平板桌面 Dock 栏。 */
+        const val KEY_HIDE_DOCK = "hide_home_dock_enabled"
+
+        /** 网格向下扩展一行（依赖 Dock 隐藏）。 */
+        const val KEY_EXPAND_GRID = "expand_home_grid_enabled"
     }
 }
 

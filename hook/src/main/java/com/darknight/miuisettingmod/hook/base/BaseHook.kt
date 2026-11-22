@@ -44,6 +44,13 @@ abstract class BaseHook {
     /** 设备形态白名单（手机 / 平板 / 折叠屏）；为空表示各设备通用。 */
     open val deviceScope: Set<DeviceType>? get() = null
 
+    /** 当前设备形态是否在 [deviceScope] 白名单内（未声明或为空视为通用）。 */
+    fun supportedOnCurrentDevice(): Boolean {
+        val scope = deviceScope ?: return true
+        if (scope.isEmpty()) return true
+        return DeviceContext.current.type in scope
+    }
+
     /** 版本分支；为空表示直接执行 [init]。 */
     open val variants: List<HookVariant> get() = emptyList()
 
