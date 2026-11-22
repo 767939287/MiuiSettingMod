@@ -27,6 +27,16 @@ object Reflect {
     fun findMethodIfExists(clazz: Class<*>, name: String, vararg parameterTypes: Class<*>): Method? =
         runCatching { findMethod(clazz, name, *parameterTypes) }.getOrNull()
 
+    /**
+     * 按方法名查找全部重载（忽略参数签名）。
+     *
+     * 同一个方法在不同 ROM / 设备分支上可能一个有参数、一个没有
+     * （如手机版 `themeManagerSupportPaidWidget()` vs 平板版
+     *  `themeManagerSupportPaidWidget(Context)`），按名字匹配全部重载能同时兼容。
+     */
+    fun findMethodsByName(clazz: Class<*>, name: String): List<Method> =
+        clazz.declaredMethods.filter { it.name == name }.onEach { it.isAccessible = true }
+
     fun findField(clazz: Class<*>, name: String): Field {
         val field = clazz.getDeclaredField(name)
         field.isAccessible = true

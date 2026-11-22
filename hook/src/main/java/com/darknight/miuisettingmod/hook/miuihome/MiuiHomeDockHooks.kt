@@ -56,7 +56,6 @@ class HomeDockHiddenHook : BaseHook() {
             HookHelper.log("$tag: $DEVICE_CONFIG not found, skip dock size")
         }
         hookDockGesture(loader)
-        hookDockWindowRemoval(loader)
         hookDockViewHide(loader)
     }
 
@@ -87,48 +86,6 @@ class HomeDockHiddenHook : BaseHook() {
         }
         HookHelper.hookReplace(method) { false }
         HookHelper.log("$tag: isTouchCountAndHotSeatSupport -> false")
-    }
-
-    /** 窗口创建后立刻从 WindowManager 移除，并拦掉后续窗口操作。 */
-    private fun hookDockWindowRemoval(loader: ClassLoader?) {
-        val clazz = Reflect.findClassIfExists(DOCK_WINDOW_MANAGER, loader)
-        if (clazz == null) {
-            HookHelper.log("$tag: $DOCK_WINDOW_MANAGER not found, skip window removal")
-            return
-        }
-        val dockRootField = runCatching { Reflect.findField(clazz, "dockRootView") }.getOrNull()
-        val windowManagerField = runCatching { Reflect.findField(clazz, "windowManager") }.getOrNull()
-        val createWindow = Reflect.findMethodIfExists(clazz, "createWindow")
-        val updateWindowHeight = Reflect.findMethodIfExists(
-            clazz,
-            "updateWindowHeight",
-            Int::class.javaPrimitiveType!!,
-        )
-        val destroyWindow = Reflect.findMethodIfExists(clazz, "destroyWindow")
-
-        if (createWindow != null && dockRootField != null && windowManagerField != null) {
-            HookHelper.intercept(createWindow, mode = ExceptionMode.PASSTHROUGH) { chain ->
-                chain.proceed()
-                runCatching {
-                    val view = dockRootField.get(chain.thisObject) as View
-                    val windowManager = windowManagerField.get(chain.thisObject) as WindowManager
-                    windowManager.removeViewImmediate(view)
-                    HookHelper.log("$tag: dock window removed from WindowManager")
-                }.onFailure { HookHelper.log("$tag: remove dock window failed", it) }
-                null
-            }
-        }
-
-        updateWindowHeight?.let { method ->
-            HookHelper.intercept(method, mode = ExceptionMode.PASSTHROUGH) { chain ->
-                // 窗口已移除时不再 updateViewLayout，否则会对未附加的 View 操作而报错。
-                val view = runCatching { dockRootField?.get(chain.thisObject) as? View }.getOrNull()
-                if (view != null && view.parent == null) null else chain.proceed()
-            }
-        }
-
-        destroyWindow?.let { method -> HookHelper.hookReplace(method) { null } }
-        HookHelper.log("$tag: DockWindowManager window hooks installed")
     }
 
     /** 兜底：attach / reparent 之后强制隐藏 Dock 视图。 */
@@ -167,23 +124,22 @@ class HomeDockHiddenHook : BaseHook() {
         }
         if (dockViewField != null && reparentToLauncher != null) {
             HookHelper.intercept(reparentToLauncher, mode = ExceptionMode.PASSTHROUGH) { chain ->
-                // 不执行原逻辑：原实现会把 HotSeats 挂进 launcher 窗口，而返回桌面手势的
-                // 过渡期间它就已经可见（快滑时表现为「闪一下」、慢滑时落在桌面就一直显示），
-                // 事后再隐藏已经来不及。这里直接阻止挂载，并兜底把已挂在容器里的移除。
-                runCatching {
-                    val dockView = dockViewField.get(chain.thisObject) as? View
-                    if (dockView != null) {
-                        (dockView.parent as? ViewGroup)?.removeView(dockView)
+                // 让原逻辑正常执行（状态机、层级切换都依赖它），执行完再把 Dock 藏起来。
+                // 之前直接跳过整个方法的做法会让 DockStateManager 与 launcher 容器状态不一致，
+                // 有概率让桌面崩一次。
+                chain.proceed()
+                runCatching { hideView(dockViewField.get(chain.thisObject)) }
+                    .onSuccess {
+                        if (!launcherReparentLogged) {
+                            launcherReparentLogged = true
+                            HookHelper.log(
+                                "$tag: dock reparented to launcher (recents), hidden"
+                            )
+                        }
                     }
-                    if (!launcherReparentLogged) {
-                        launcherReparentLogged = true
-                        HookHelper.log(
-                            "$tag: reparentToLauncher skipped, dock kept out of launcher window"
-                        )
+                    .onFailure {
+                        HookHelper.log("$tag: hide dock after reparentToLauncher failed", it)
                     }
-                }.onFailure {
-                    HookHelper.log("$tag: detach dock from launcher failed", it)
-                }
                 null
             }
         }
@@ -457,6 +413,10 @@ class HomeDockDesktopOnlyHook : BaseHook() {
     @Volatile
     private var stateManager: Any? = null
 
+    /** 缓存的 Dock 视图（`DockWindowManager#dockView`）。 */
+    @Volatile
+    private var dockView: View? = null
+
     override fun init() {
         val loader = target.classLoader
         installAfterApplicationReady(tag, loader) { installDesktopOnly(loader) }
@@ -468,25 +428,67 @@ class HomeDockDesktopOnlyHook : BaseHook() {
             HookHelper.log("$tag: $DOCK_STATE_MANAGER not found, skip")
             return
         }
-        // 尽早拿到 DockStateManager 实例：observeState / getState 都会被框架调用。
-        listOf("observeState", "getState").forEach { name ->
-            Reflect.findMethodIfExists(managerClass, name)?.let { method ->
-                HookHelper.hookAfter(method) { param -> stateManager = param.thisObject }
+        // 1) 构造函数兜底记录实例（Launcher 初始化时必然创建）。
+        runCatching {
+            HookHelper.hookAllConstructors(managerClass) { param ->
+                stateManager = param.thisObject
+            }
+        }.onFailure { HookHelper.log("$tag: hook constructors failed", it) }
+
+        // 2) `getState()` 被 `DockControllerImpl` 频繁调用：每次返回后按状态同步 Dock 可见性。
+        //    直接用返回值判断，不在回调里再调 getState()，避免递归。
+        Reflect.findMethodIfExists(managerClass, "getState")?.let { method ->
+            HookHelper.hookAfter(method) { param ->
+                stateManager = param.thisObject
+                syncDockVisibility(param.thisObject, param.result)
             }
         }
 
+        // 3) `observeState()` 只用于记录实例。
+        Reflect.findMethodIfExists(managerClass, "observeState")?.let { method ->
+            HookHelper.hookAfter(method) { param -> stateManager = param.thisObject }
+        }
+
+        // 4) 动画收尾也会刷新可见性，非 HOME 时把 alpha 目标强制成 0。
         val runner = Reflect.findClassIfExists(DOCK_ANIMATION_RUNNER, loader)
         val applyAlpha = runner?.let { clazz ->
             Reflect.findMethodIfExists(clazz, "applyAlpha", Float::class.javaPrimitiveType!!)
         }
-        if (applyAlpha == null) {
-            HookHelper.log("$tag: applyAlpha not found, skip")
-            return
+        applyAlpha?.let { method ->
+            HookHelper.hookBefore(method) { param ->
+                if (!isHomeState()) param.setArg(0, 0f)
+            }
         }
-        HookHelper.hookBefore(applyAlpha) { param ->
-            if (!isHomeState()) param.setArg(0, 0f)
+        HookHelper.log("$tag: dock desktop-only installed (visible on HOME_STATE only)")
+    }
+
+    /**
+     * 按状态直接控制 Dock 视图可见性。
+     *
+     * 只靠 `applyAlpha` 有个致命问题：离开桌面后 alpha 被置 0，回到桌面时如果
+     * 没有对应的 alpha 事务，Dock 就永久消失了（之前把桌面 Dock 也弄没就是这个原因）。
+     * 所以这里在 `getState()` 返回后主动纠偏：HOME → 恢复可见；其它 → 隐藏。
+     */
+    private fun syncDockVisibility(manager: Any?, state: Any?) {
+        val holder = manager ?: return
+        val isHome = (state as? Enum<*>)?.name == HOME_STATE
+        val view = resolveDockView(holder) ?: return
+        if (isHome) {
+            if (view.visibility != View.VISIBLE) view.visibility = View.VISIBLE
+            if (view.alpha != 1f) view.alpha = 1f
+        } else {
+            if (view.visibility != View.GONE) view.visibility = View.GONE
+            if (view.alpha != 0f) view.alpha = 0f
         }
-        HookHelper.log("$tag: dock desktop-only installed (hidden outside HOME_STATE)")
+    }
+
+    /** 从 `DockStateManager#dockWindowManager` 取 Dock 视图，取到后缓存。 */
+    private fun resolveDockView(manager: Any): View? {
+        dockView?.let { return it }
+        return runCatching {
+            val windowManager = Reflect.getObjectField(manager, "dockWindowManager")
+            (Reflect.getObjectField(windowManager, "dockView") as? View)?.also { dockView = it }
+        }.getOrNull()
     }
 
     /** 当前是否处于桌面状态；状态未知时放行，避免把桌面 Dock 一并隐藏。 */

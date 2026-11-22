@@ -4,6 +4,7 @@ import com.darknight.miuisettingmod.hook.base.BaseHook
 import com.darknight.miuisettingmod.hook.base.BaseLoad
 import com.darknight.miuisettingmod.hook.base.PackageTarget
 import com.darknight.miuisettingmod.hook.prefs.HookPrefs
+import com.darknight.miuisettingmod.hook.rule.HookSkippedException
 import com.darknight.miuisettingmod.hook.xposed.HookHelper
 import com.darknight.miuisettingmod.hook.xposed.Reflect
 
@@ -35,6 +36,9 @@ class PersonalAssistantLoad : BaseLoad() {
 class PaidWidgetBypassHook : BaseHook() {
 
     override val key: String = PersonalAssistantLoad.KEY
+
+    /** 本 ROM 上实际挂上的方法数；一个都没挂上说明类名 / 方法名全变了，应当标记为未生效。 */
+    private var installed = 0
 
     override fun init() {
         // 付费小组件总开关：关闭后不再走付费逻辑。
@@ -96,6 +100,11 @@ class PaidWidgetBypassHook : BaseHook() {
             "checkIsIndependentProcessWidgetForPosition",
             true,
         )
+
+        if (installed == 0) {
+            throw HookSkippedException("no paid widget method matched on this ROM")
+        }
+        HookHelper.log("$tag: $installed method(s) hooked (paid widget bypass)")
     }
 
     private fun installConstant(className: String, methodName: String, value: Boolean) {
@@ -105,12 +114,19 @@ class PaidWidgetBypassHook : BaseHook() {
                 HookHelper.log("$tag: $className not found")
                 return@runCatching
             }
-            val method = Reflect.findMethodIfExists(clazz, methodName)
-            if (method == null) {
+            // 同名方法可能有多个重载：手机版多为无参，平板版则带了参数
+            // （如 `themeManagerSupportPaidWidget(Context)`、`isCanDirectAddMaMl(int)`），
+            // 因此按名字匹配全部重载，不再依赖无参签名。
+            val methods = clazz.declaredMethods.filter { it.name == methodName }
+            if (methods.isEmpty()) {
                 HookHelper.log("$tag: $className#$methodName not found")
                 return@runCatching
             }
-            HookHelper.hookReplace(method) { value }
+            methods.forEach { method ->
+                method.isAccessible = true
+                HookHelper.hookReplace(method) { value }
+                installed++
+            }
         }.onFailure { HookHelper.log("$tag: $className#$methodName failed", it) }
     }
 }

@@ -1,5 +1,20 @@
 # 更新日志
 
+## 1.2.4
+
+> 发布于 2026-11-21
+
+### 修复
+
+- **「Dock 仅在桌面显示」把桌面 Dock 也一起藏掉**：原来只靠 `DockAnimationRunner#applyAlpha` 强制 0，回到桌面时若没有对应的 alpha 事务，Dock 就永久不可见。现在改为在 `DockStateManager#getState()` 返回后按状态纠偏（HOME → 可见，其它 → 隐藏），`applyAlpha` 仅作兵底。
+- **隐藏 Dock 后桌面崩溃 / Dock 无法重建**：移除了「Dock 窗口创建后从 WindowManager 移除 + 拦掉 `destroyWindow`」的高风险 hook，改为只压高度 + 隐藏视图，窗口继续留在系统里；`reparentToLauncher` 也改回正常执行后再隐藏。
+- **平板负一屏付费小组件失效**：平板版方法与手机版签名不同（如 `themeManagerSupportPaidWidget(Context)`、`isCanDirectAddMaMl(int)`），原来按无参签名查找全部 `not found`。现在按方法名匹配全部重载；主题商店 / 桌面的同源风险一并修正。
+- **负一屏全部未命中仍显示「已生效」**：现在一个方法都没挂上时会标记为未生效。
+
+### 新增
+
+- **退出全部安全模式**：安全模式页新增一键清空入口，用于 App 列表里找不到具体项时解除安全模式。
+
 ## 1.2.3
 
 > 发布于 2026-11-21

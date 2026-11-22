@@ -104,6 +104,17 @@ internal fun SafeModeContent(contentPadding: PaddingValues) {
             }
         }
 
+        // 列表只展示 LSPosed 作用域内的包，某些情况下找不到具体项（作用域未同步、
+        // 或安全模式标记来自旧版本），这里提供一个一键清空的入口。
+        item {
+            AppSectionCard {
+                BasicComponent(
+                    title = stringResource(R.string.safe_mode_reset_all),
+                    onClick = { SafeModeReader.resetAll() },
+                )
+            }
+        }
+
         if (scope.isEmpty()) {
             item {
                 MiuixText(

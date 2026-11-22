@@ -141,13 +141,14 @@ class ThemeManagerPaidWidgetHook : BaseHook() {
             HookHelper.log("$tag: $MAML_UTIL_CLASS not found, skip")
             return
         }
-        val method = Reflect.findMethodIfExists(clazz, "themeManagerSupportPaidWidget")
-        if (method == null) {
+        // 同名重载可能在部分设备分支上带参数，按名字匹配全部重载。
+        val methods = Reflect.findMethodsByName(clazz, "themeManagerSupportPaidWidget")
+        if (methods.isEmpty()) {
             HookHelper.log("$tag: themeManagerSupportPaidWidget not found, skip")
             return
         }
-        HookHelper.hookReplace(method) { false }
-        HookHelper.log("$tag: themeManagerSupportPaidWidget -> false installed")
+        methods.forEach { method -> HookHelper.hookReplace(method) { false } }
+        HookHelper.log("$tag: ${methods.size} overload(s) -> false installed")
     }
 
     companion object {

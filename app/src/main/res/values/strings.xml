@@ -90,6 +90,7 @@
     <string name="safe_mode_manage">安全模式</string>
     <string name="safe_mode_declaration">安全模式是模块的保护机制：当目标应用在加载 Hook 后短时间内反复崩溃时，会自动跳过该应用的 Hook，避免系统应用崩溃导致无法开机。你可以在此手动开关每个被 Hook 应用的安全模式——打开即跳过该应用全部 Hook，关闭则恢复并清空崩溃计数。</string>
     <string name="safe_mode_crash_count">崩溃 %d 次</string>
+    <string name="safe_mode_reset_all">退出全部安全模式</string>
 
     <!-- Module: device -->
     <string name="settings_device_type">设备类型</string>

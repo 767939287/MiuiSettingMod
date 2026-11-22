@@ -58,13 +58,14 @@ class HomePaidWidgetHook : BaseHook() {
             HookHelper.log("$tag: $MAML_UTIL_CLASS not found, skip")
             return
         }
-        val method = Reflect.findMethodIfExists(clazz, "themeManagerSupportPaidWidget")
-        if (method == null) {
+        // 同名重载可能在平板分支上带参数，按名字匹配全部重载。
+        val methods = Reflect.findMethodsByName(clazz, "themeManagerSupportPaidWidget")
+        if (methods.isEmpty()) {
             HookHelper.log("$tag: themeManagerSupportPaidWidget not found, skip")
             return
         }
-        HookHelper.hookReplace(method) { false }
-        HookHelper.log("$tag: themeManagerSupportPaidWidget -> false installed")
+        methods.forEach { method -> HookHelper.hookReplace(method) { false } }
+        HookHelper.log("$tag: ${methods.size} overload(s) -> false installed")
     }
 
     companion object {
@@ -87,13 +88,13 @@ class HomeAutoDownloadHook : BaseHook() {
             HookHelper.log("$tag: $PENDING_HOST_CLASS not found, skip")
             return
         }
-        val method = Reflect.findMethodIfExists(clazz, "isCanAutoStartDownload")
-        if (method == null) {
+        val methods = Reflect.findMethodsByName(clazz, "isCanAutoStartDownload")
+        if (methods.isEmpty()) {
             HookHelper.log("$tag: isCanAutoStartDownload not found, skip")
             return
         }
-        HookHelper.hookReplace(method) { true }
-        HookHelper.log("$tag: isCanAutoStartDownload -> true installed")
+        methods.forEach { method -> HookHelper.hookReplace(method) { true } }
+        HookHelper.log("$tag: ${methods.size} overload(s) -> true installed")
     }
 
     companion object {
