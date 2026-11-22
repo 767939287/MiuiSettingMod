@@ -223,6 +223,9 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         summaryRes = R.string.theme_crack_system_server_enabled_summary,
         defaultBoolean = false,
         targetPackages = listOf("system"),
-        showStatus = true,
+        // system_server 的上报窗口受开机耗时影响很大（MIUI 首次开机常超过上报器的
+        // 轮询上限），经常一次都发不出去，只会长期停在「等待启动」误导用户。
+        // 这一项不展示生效徽标，功能本身照常安装。
+        showStatus = false,
     ),
 )
