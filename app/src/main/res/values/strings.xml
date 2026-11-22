@@ -267,4 +267,10 @@
     <string name="expand_home_grid_enabled_summary">Dock 隐藏后把空出的底部空间交给桌面网格，尽量保持图标尺寸（仅平板可见）</string>
     <string name="home_dock_no_animation_enabled">Dock 不播放弹出动画</string>
     <string name="home_dock_no_animation_enabled_summary">从应用返回桌面时 Dock 直接出现，不再有从底部弹出的过渡动画；Dock 本身照常显示（仅平板可见）</string>
+    <!-- Features: side road charging -->
+    <string name="feature_section_charge">充电</string>
+    <string name="side_road_charge_force_on">强制开启旁路充电</string>
+    <string name="side_road_charge_force_on_summary">插电后自动打开系统的旁路充电开关（机型需支持）；手动停止后本次充电不再重开，拔电即恢复；电量、温度条件仍由系统判定</string>
+    <string name="side_road_charge_block_stop">阻止息屏停止旁路充电</string>
+    <string name="side_road_charge_block_stop_summary">系统在息屏时会自动关闭旁路充电，开启后保持直供；拔电或手动停止仍然有效</string>
 </resources>

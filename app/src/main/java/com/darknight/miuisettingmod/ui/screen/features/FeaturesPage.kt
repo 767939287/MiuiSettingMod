@@ -87,6 +87,13 @@ private fun featureSections(specs: List<OptionSpec>): List<HookSection> = listOf
             specByKey(specs, "theme_crack_system_server_enabled"),
         ),
     ),
+    HookSection(
+        titleRes = R.string.feature_section_charge,
+        specs = listOf(
+            specByKey(specs, "side_road_charge_force_on"),
+            specByKey(specs, "side_road_charge_block_stop"),
+        ),
+    ),
 )
 
 /** 功能页的全部配置项（App 启动时注册，供全局搜索与作用域申请使用）。 */
@@ -227,5 +234,23 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         // 轮询上限），经常一次都发不出去，只会长期停在「等待启动」误导用户。
         // 这一项不展示生效徽标，功能本身照常安装。
         showStatus = false,
+    ),
+    OptionSpec(
+        key = "side_road_charge_force_on",
+        type = OptionType.SWITCH,
+        titleRes = R.string.side_road_charge_force_on,
+        summaryRes = R.string.side_road_charge_force_on_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("com.miui.securitycenter"),
+        showStatus = true,
+    ),
+    OptionSpec(
+        key = "side_road_charge_block_stop",
+        type = OptionType.SWITCH,
+        titleRes = R.string.side_road_charge_block_stop,
+        summaryRes = R.string.side_road_charge_block_stop_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("com.miui.securitycenter"),
+        showStatus = true,
     ),
 )

@@ -267,4 +267,10 @@
     <string name="expand_home_grid_enabled_summary">Give the space freed by hiding the dock to the workspace grid, keeping icon size whenever possible (pad only)</string>
     <string name="home_dock_no_animation_enabled">Disable Dock Pop-up Animation</string>
     <string name="home_dock_no_animation_enabled_summary">Show the dock instantly when returning home instead of sliding it up from the bottom; the dock itself stays visible (pad only)</string>
+    <!-- Features: side road charging -->
+    <string name="feature_section_charge">Charging</string>
+    <string name="side_road_charge_force_on">Force Enable Bypass Charging</string>
+    <string name="side_road_charge_force_on_summary">Turn on the system bypass charging switch after the charger is plugged in (supported devices only); a manual stop stays respected until you unplug; battery level and thermal checks still apply</string>
+    <string name="side_road_charge_block_stop">Keep Bypass Charging on Screen Off</string>
+    <string name="side_road_charge_block_stop_summary">The system stops bypass charging when the screen turns off; enable this to keep it running. Unplugging or stopping it manually still works</string>
 </resources>

@@ -3,6 +3,7 @@ package com.darknight.miuisettingmod.hook.base
 import com.darknight.miuisettingmod.hook.demo.DemoLoad
 import com.darknight.miuisettingmod.hook.miuihome.MiuiHomeLoad
 import com.darknight.miuisettingmod.hook.personalassistant.PersonalAssistantLoad
+import com.darknight.miuisettingmod.hook.securitycenter.SecurityCenterLoad
 import com.darknight.miuisettingmod.hook.settings.SettingsLoad
 import com.darknight.miuisettingmod.hook.systemserver.SystemServerThemeLoad
 import com.darknight.miuisettingmod.hook.systemui.SystemUiLoad
@@ -22,6 +23,7 @@ object HookEntryRegistry {
         ThemeManagerLoad(),
         PersonalAssistantLoad(),
         MiuiHomeLoad(),
+        SecurityCenterLoad(),
         SystemServerThemeLoad(),
     )
 
