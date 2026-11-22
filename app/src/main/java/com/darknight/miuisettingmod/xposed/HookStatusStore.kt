@@ -136,9 +136,9 @@ object HookStatusStore {
 
     private fun readScopedSnapshot(): HookStatusSnapshot {
         val prefs = preferences ?: return HookStatusSnapshot()
-        if (prefs.getLong(KEY_VERSION_CODE, 0L) != versionCode) return HookStatusSnapshot()
-        // `Settings.Global.BOOT_COUNT` 在部分 ROM / 受限制场景下读不到（返回 -1），
-        // 此时不能再按开机号过滤 —— 否则所有上报都会被“丢弃”，状态永远停在「等待启动」。
+        // 不再按模块版本号过滤：目标进程只在自身启动时上报一次，升级模块后
+        // SystemUI / 桌面等常驻进程往往不会立刻重启，按版本丢弃会让所有项显示
+        // 「等待启动」。只在真正重启过设备（开机号变化）时清空旧证据。
         if (bootCount != INVALID_BOOT_COUNT &&
             prefs.getInt(KEY_BOOT_COUNT, INVALID_BOOT_COUNT) != bootCount
         ) {
