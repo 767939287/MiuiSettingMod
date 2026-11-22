@@ -4,6 +4,7 @@ import com.darknight.miuisettingmod.hook.base.HookEntryRegistry
 import com.darknight.miuisettingmod.hook.base.PackageTarget
 import com.darknight.miuisettingmod.hook.prefs.HookPrefs
 import com.darknight.miuisettingmod.hook.safemode.SafeModeManager
+import com.darknight.miuisettingmod.hook.status.HookStatusContract
 import com.darknight.miuisettingmod.hook.status.HookStatusReporter
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
@@ -41,9 +42,13 @@ class XposedEntry : XposedModule() {
     }
 
     override fun onSystemServerStarting(param: SystemServerStartingParam) {
+        // system_server 不创建 Application，`onModuleLoaded` 里的远程偏好若未就绪，
+        // 这里会读到默认值：开关全为 false → 没有任何 hook 安装、也不会产生上报。
+        runCatching { HookPrefs.init(getRemotePreferences(HookPrefs.GROUP)) }
+            .onFailure { HookHelper.log("system_server: remote prefs unavailable", it) }
         // system_server 同样接入兜底机制，防止 hook 异常导致崩溃、无法开机。
         SafeModeManager.init(this)
-        if (SafeModeManager.handleStart("system")) {
+        if (SafeModeManager.handleStart(HookStatusContract.SYSTEM_SERVER_PACKAGE)) {
             HookHelper.log("SafeMode: system_server is in safe mode, skip hooks")
             return
         }

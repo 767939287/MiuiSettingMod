@@ -1,5 +1,22 @@
 # 更新日志
 
+## 1.2.3
+
+> 发布于 2026-11-21
+
+### 新增
+
+- **Dock 仅在桌面显示（平板）**：桌面显示 Dock，进入应用或最近任务时自动隐藏。实现上 hook `DockStateManager#getState()` 记录状态、并在 `DockAnimationRunner#applyAlpha()` 里把非 `HOME_STATE` 的目标透明度置 0，不改动状态机与拖拽链路。
+
+### 修复
+
+- **Hook 状态徽标误报**：
+  - 「自动隐藏手势线」没有独立上报键，功能已生效也会显示「未生效」；现在 `updateTopActivity` 安装成功/失败都会上报。
+  - system_server 上报的包名是 `android`，而配置项写的 `system`，两边永远匹配不上，状态只能停在「等待启动」；现在统一归一化，并允许 system_server 上报「进程已启动」证据，用来区分「未生效」与「等待启动」。
+  - system_server 分支没有重新初始化远程偏好，可能读到默认值导致 hook 完全不装；已补。
+  - 安全模式键名统一为 `android`（App 侧写 `safe_mode_android`，hook 侧原来查 `safe_mode_system`，导致系统进程的自动安全模式失效）。
+- **平板 Dock 在最近任务里仍显示**：「隐藏桌面 Dock 栏」现在同时阻止 `DockWindowManager#reparentToLauncher()` 把 Dock 挂进 launcher 窗口，快 / 慢速返回桌面都不会闪现。
+
 ## 1.2.2
 
 > 发布于 2026-11-21

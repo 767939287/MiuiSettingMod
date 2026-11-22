@@ -12,6 +12,7 @@ import com.darknight.miuisettingmod.hook.base.BaseHook
 import com.darknight.miuisettingmod.hook.base.BaseLoad
 import com.darknight.miuisettingmod.hook.base.PackageTarget
 import com.darknight.miuisettingmod.hook.prefs.HookPrefs
+import com.darknight.miuisettingmod.hook.status.HookStatusReporter
 import com.darknight.miuisettingmod.hook.xposed.HookHelper
 import com.darknight.miuisettingmod.hook.xposed.Reflect
 
@@ -131,6 +132,7 @@ class HideGestureLineHook : BaseHook() {
         val clazz = Reflect.findClassIfExists(TOP_ACTIVITY_OBSERVER, loader)
         if (clazz == null) {
             HookHelper.log("$tag: $TOP_ACTIVITY_OBSERVER not found, auto hide unavailable")
+            HookStatusReporter.markFailed(KEY_AUTO_HIDE)
             return
         }
         val method = Reflect.findMethodIfExists(
@@ -140,6 +142,7 @@ class HideGestureLineHook : BaseHook() {
         )
         if (method == null) {
             HookHelper.log("$tag: updateTopActivity(RunningTaskInfo) not found, auto hide unavailable")
+            HookStatusReporter.markFailed(KEY_AUTO_HIDE)
             return
         }
         HookHelper.hookAfter(method) { param ->
@@ -155,6 +158,9 @@ class HideGestureLineHook : BaseHook() {
             }
         }
         HookHelper.log("$tag: ${clazz.name}#updateTopActivity hooked (auto hide)")
+        // 自动隐藏没有独立的 BaseHook（挂在 HideGestureLineHook 里），
+        // 这里单独上报它的生效状态，否则功能已生效也会显示「未生效」。
+        HookStatusReporter.markInstalled(KEY_AUTO_HIDE)
     }
 
     /**

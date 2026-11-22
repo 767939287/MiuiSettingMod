@@ -76,7 +76,10 @@ object HookStatusReporter {
     @Synchronized
     fun flush(sourcePackage: String, sourceProcess: String) {
         pendingSource = sourcePackage to sourceProcess
-        if (evaluatedKeys.isEmpty()) return
+        // system_server 即使没有可上报的键，也发一次「进程已启动」的证据：
+        // 否则开关打开但 hook 未安装时，App 侧只能一直停在「等待启动」。
+        val isSystemServer = sourcePackage == HookStatusContract.SYSTEM_SERVER_PACKAGE
+        if (evaluatedKeys.isEmpty() && !isSystemServer) return
         val context = currentApplication() ?: systemContext()
         if (context != null && reportIfPending(context)) return
         // 上下文拿不到，或系统尚未就绪（system_server 启动早期）：补挂兜底钩子并轮询重试。
@@ -124,7 +127,8 @@ object HookStatusReporter {
     private fun reportIfPending(context: Context): Boolean {
         val source = pendingSource ?: return false
         if (reported) return true
-        if (evaluatedKeys.isEmpty()) return false
+        val isSystemServer = source.first == HookStatusContract.SYSTEM_SERVER_PACKAGE
+        if (evaluatedKeys.isEmpty() && !isSystemServer) return false
         // system_server 启动早期（startBootstrapServices 之前）ActivityThread 已经能给出
         // system context，但 AMS 还没注册，sendBroadcast 会因 IActivityManager 为 null 抛 NPE。
         if (!broadcastReady()) {

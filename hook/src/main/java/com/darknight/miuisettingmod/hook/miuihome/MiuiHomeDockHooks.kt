@@ -1,6 +1,7 @@
 package com.darknight.miuisettingmod.hook.miuihome
 
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
 import com.darknight.miuisettingmod.hook.base.BaseHook
 import com.darknight.miuisettingmod.hook.device.DeviceType
@@ -11,6 +12,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** 只在平板形态生效（手机 / 折叠屏没有平板 Dock 这套布局）。 */
 private val PAD_ONLY: Set<DeviceType> = setOf(DeviceType.PAD)
+
+/** 平板 Dock 的动画执行器：`DockViewManager` 的每次事务都经由它执行。 */
+private const val DOCK_ANIMATION_RUNNER =
+    "com.miui.home.launcher.dock.v3.view.DockAnimationRunner"
 
 /**
  * 隐藏平板桌面底部的 Dock 悬浮栏。
@@ -23,7 +28,9 @@ private val PAD_ONLY: Set<DeviceType> = setOf(DeviceType.PAD)
  * 1. `DeviceConfig#getHotSeatsHeight()` / `getDockWindowHeight()` 压成 1px，其它按 Dock 高度布局的地方不再占位；
  * 2. `GestureTouchEventTracker#isTouchCountAndHotSeatSupport()` 返回 false，上滑手势跳过 Dock；
  * 3. `DockWindowManager#createWindow()` 之后立刻 `removeViewImmediate`，并拦掉后续 `updateWindowHeight` / `destroyWindow`；
- * 4. 兜底：`DockContainerView#onAttachedToWindow()` 与 `DockWindowManager#reparentToWindow()` 之后强制 `GONE` + 全透明。
+ * 4. 兜底：`DockContainerView#onAttachedToWindow()`、`DockWindowManager#reparentToWindow()` /
+ *    `reparentToLauncher()`（最近任务里 Dock 会被挂回 launcher 容器）之后强制 `GONE` + 全透明；
+ * 5. `DockAnimationRunner#applyAlpha()` 的目标 alpha 强制为 0，避免动画收尾把视图刷回 VISIBLE。
  *
  * 目标：`com.miui.home`
  */
@@ -32,6 +39,9 @@ class HomeDockHiddenHook : BaseHook() {
     override val key: String = MiuiHomeLoad.KEY_HIDE_DOCK
 
     override val deviceScope: Set<DeviceType> = PAD_ONLY
+
+    /** 是否已经记录过「最近任务里 Dock 被挂回 launcher 容器」的日志（只记一次，避免刷屏）。 */
+    private var launcherReparentLogged = false
 
     override fun init() {
         val loader = target.classLoader
@@ -147,7 +157,49 @@ class HomeDockHiddenHook : BaseHook() {
                 null
             }
         }
-        HookHelper.log("$tag: DockContainerView / reparentToWindow hooks installed")
+
+        // 最近任务里 Dock 不走悬浮窗：`reparentToLauncher()` 会把 HotSeats 挂进 launcher
+        // 容器（此时 dockRootView 反而是 GONE），所以需要单独兜底。
+        val dockViewField = windowManagerClass
+            ?.let { runCatching { Reflect.findField(it, "dockView") }.getOrNull() }
+        val reparentToLauncher = windowManagerClass?.let {
+            Reflect.findMethodIfExists(it, "reparentToLauncher")
+        }
+        if (dockViewField != null && reparentToLauncher != null) {
+            HookHelper.intercept(reparentToLauncher, mode = ExceptionMode.PASSTHROUGH) { chain ->
+                // 不执行原逻辑：原实现会把 HotSeats 挂进 launcher 窗口，而返回桌面手势的
+                // 过渡期间它就已经可见（快滑时表现为「闪一下」、慢滑时落在桌面就一直显示），
+                // 事后再隐藏已经来不及。这里直接阻止挂载，并兜底把已挂在容器里的移除。
+                runCatching {
+                    val dockView = dockViewField.get(chain.thisObject) as? View
+                    if (dockView != null) {
+                        (dockView.parent as? ViewGroup)?.removeView(dockView)
+                    }
+                    if (!launcherReparentLogged) {
+                        launcherReparentLogged = true
+                        HookHelper.log(
+                            "$tag: reparentToLauncher skipped, dock kept out of launcher window"
+                        )
+                    }
+                }.onFailure {
+                    HookHelper.log("$tag: detach dock from launcher failed", it)
+                }
+                null
+            }
+        }
+
+        // Dock 位移动画收尾时会用 `applyAlpha(目标值)` 把视图重新设回 VISIBLE，
+        // 上面几处 GONE 会被它覆盖；这里把动画的 alpha 目标强制成 0，
+        // 最近任务场景也能保持隐藏。
+        val runner = Reflect.findClassIfExists(DOCK_ANIMATION_RUNNER, loader)
+        val applyAlpha = runner?.let { clazz ->
+            Reflect.findMethodIfExists(clazz, "applyAlpha", Float::class.javaPrimitiveType!!)
+        }
+        applyAlpha?.let { method ->
+            HookHelper.hookBefore(method) { param -> param.setArg(0, 0f) }
+        }
+
+        HookHelper.log("$tag: DockContainerView / reparent(ToWindow|ToLauncher) hooks installed")
     }
 
     private fun hideView(target: Any?) {
@@ -376,10 +428,79 @@ class HomeDockNoAnimationHook : BaseHook() {
     }
 
     companion object {
-        private const val DOCK_ANIMATION_RUNNER =
-            "com.miui.home.launcher.dock.v3.view.DockAnimationRunner"
         private const val RUN_ANIMATION = "runAnimation"
         private const val SET_ANIMATED = "setAnimated"
+    }
+}
+
+/**
+ * Dock 仅在桌面（HOME_STATE）显示，应用内与最近任务都隐藏。
+ *
+ * 平板 Dock 的显隐由 `DockStateManager` 的状态（HOME / RECENT / APP）驱动，
+ * 每次状态切换都会生成一个 `Transaction` 交给 `DockAnimationRunner` 执行，
+ * 最终统一落到 `applyAlpha(目标透明度)`。因此这里：
+ *
+ * 1. 在 `DockStateManager#getState()` / `#observeState()` 时记下实例；
+ * 2. `DockAnimationRunner#applyAlpha()` 执行前，如果当前不是 `HOME_STATE`
+ *    就把目标透明度强制成 0。
+ *
+ * 不改变状态机本身，只影响可视效果，Dock 的图标 / 拖拽链路全部保留。
+ *
+ * 目标：`com.miui.home`
+ */
+class HomeDockDesktopOnlyHook : BaseHook() {
+
+    override val key: String = MiuiHomeLoad.KEY_DOCK_DESKTOP_ONLY
+
+    override val deviceScope: Set<DeviceType> = PAD_ONLY
+
+    @Volatile
+    private var stateManager: Any? = null
+
+    override fun init() {
+        val loader = target.classLoader
+        installAfterApplicationReady(tag, loader) { installDesktopOnly(loader) }
+    }
+
+    private fun installDesktopOnly(loader: ClassLoader?) {
+        val managerClass = Reflect.findClassIfExists(DOCK_STATE_MANAGER, loader)
+        if (managerClass == null) {
+            HookHelper.log("$tag: $DOCK_STATE_MANAGER not found, skip")
+            return
+        }
+        // 尽早拿到 DockStateManager 实例：observeState / getState 都会被框架调用。
+        listOf("observeState", "getState").forEach { name ->
+            Reflect.findMethodIfExists(managerClass, name)?.let { method ->
+                HookHelper.hookAfter(method) { param -> stateManager = param.thisObject }
+            }
+        }
+
+        val runner = Reflect.findClassIfExists(DOCK_ANIMATION_RUNNER, loader)
+        val applyAlpha = runner?.let { clazz ->
+            Reflect.findMethodIfExists(clazz, "applyAlpha", Float::class.javaPrimitiveType!!)
+        }
+        if (applyAlpha == null) {
+            HookHelper.log("$tag: applyAlpha not found, skip")
+            return
+        }
+        HookHelper.hookBefore(applyAlpha) { param ->
+            if (!isHomeState()) param.setArg(0, 0f)
+        }
+        HookHelper.log("$tag: dock desktop-only installed (hidden outside HOME_STATE)")
+    }
+
+    /** 当前是否处于桌面状态；状态未知时放行，避免把桌面 Dock 一并隐藏。 */
+    private fun isHomeState(): Boolean {
+        val manager = stateManager ?: return true
+        val state = runCatching { Reflect.callMethod(manager, "getState") }.getOrNull()
+            ?: return true
+        return (state as? Enum<*>)?.name == HOME_STATE
+    }
+
+    companion object {
+        private const val DOCK_STATE_MANAGER =
+            "com.miui.home.launcher.dock.v3.state.DockStateManager"
+        private const val HOME_STATE = "HOME_STATE"
     }
 }
 

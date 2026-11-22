@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.provider.Settings
 import androidx.core.content.edit
+import com.darknight.miuisettingmod.hook.status.HookStatusContract
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,10 +55,15 @@ object HookStatusStore {
     /** 某键在指定目标包集合下的当前状态。 */
     fun statusFor(key: String, targetPackages: Collection<String>): HookStatus {
         val snapshot = mutableSnapshot.value
+        // `android`（hook 侧上报）与 `system`（App 侧配置 / 作用域）视为同一个进程。
+        val normalizedTargets = targetPackages
+            .mapTo(HashSet()) { HookStatusContract.normalizePackage(it) }
         return when {
             key in snapshot.applied -> HookStatus.APPLIED
             key in snapshot.pending -> HookStatus.WAITING
-            snapshot.reportedPackages.any { it in targetPackages } -> HookStatus.NOT_APPLIED
+            snapshot.reportedPackages.any {
+                HookStatusContract.normalizePackage(it) in normalizedTargets
+            } -> HookStatus.NOT_APPLIED
             else -> HookStatus.WAITING
         }
     }
@@ -78,7 +84,9 @@ object HookStatusStore {
         sourcePackage: String,
     ) {
         initialize(context)
-        if (evaluated.isEmpty()) return
+        // system_server 可以只带「进程已启动」的空评估集上报，用于区分
+        //「未生效」与「等待启动」；其它进程仍要求至少有一个已评估的键。
+        if (evaluated.isEmpty() && sourcePackage != HookStatusContract.SYSTEM_SERVER_PACKAGE) return
         val old = mutableSnapshot.value
         // 同一轮里失败优先：避免“先报成功、后报失败”的 Hook 残留绿色。
         val nextApplied = (old.applied + applied) - failed.toSet()

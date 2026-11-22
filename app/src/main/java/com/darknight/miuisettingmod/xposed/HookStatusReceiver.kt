@@ -26,6 +26,7 @@ class HookStatusReceiver : BroadcastReceiver() {
         val specs = OptionRegistry.all()
         val knownKeys = specs.mapTo(HashSet()) { it.key }
         val declaredTargets = specs.flatMapTo(HashSet()) { it.targetPackages }
+            .mapTo(HashSet()) { HookStatusContract.normalizePackage(it) }
         val senderUid = runCatching { sentFromUid }.getOrDefault(-1)
         val pakOk = if (senderUid >= 0) {
             val senderPackages = context.packageManager
@@ -35,7 +36,8 @@ class HookStatusReceiver : BroadcastReceiver() {
             sourcePackage != null && sourcePackage in senderPackages
         } else {
             // 身份不可用时的兜底：来源包必须是已声明的目标包（仍能挡住无关应用伪造）。
-            sourcePackage != null && sourcePackage in declaredTargets
+            sourcePackage != null &&
+                HookStatusContract.normalizePackage(sourcePackage) in declaredTargets
         }
         if (!pakOk) {
             Log.w(TAG, "rejected hook report: identity/package mismatch uid=$senderUid pkg=$sourcePackage")
@@ -70,7 +72,9 @@ class HookStatusReceiver : BroadcastReceiver() {
             .getStringArrayListExtra(HookStatusContract.EXTRA_EVALUATED_KEYS)
             .orEmpty()
             .filter { it in knownKeys }
-        if (evaluated.isEmpty()) {
+        if (evaluated.isEmpty() &&
+            source != HookStatusContract.SYSTEM_SERVER_PACKAGE
+        ) {
             Log.w(
                 TAG,
                 "rejected hook report: no evaluated known keys from $source " +

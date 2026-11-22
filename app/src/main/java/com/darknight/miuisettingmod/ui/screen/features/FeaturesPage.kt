@@ -73,6 +73,7 @@ private fun featureSections(specs: List<OptionSpec>): List<HookSection> = listOf
         titleRes = R.string.feature_section_home,
         specs = listOf(
             specByKey(specs, "hide_home_dock_enabled"),
+            specByKey(specs, "home_dock_desktop_only_enabled"),
             specByKey(specs, "expand_home_grid_enabled"),
             specByKey(specs, "home_dock_no_animation_enabled"),
         ),
@@ -150,6 +151,17 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         defaultBoolean = false,
         targetPackages = listOf("com.miui.home"),
         // 平板专属（手机 / 折叠屏隐藏）。
+        deviceScope = setOf(DeviceType.PAD),
+        hideOnUnsupportedDevice = true,
+        showStatus = true,
+    ),
+    OptionSpec(
+        key = "home_dock_desktop_only_enabled",
+        type = OptionType.SWITCH,
+        titleRes = R.string.home_dock_desktop_only_enabled,
+        summaryRes = R.string.home_dock_desktop_only_enabled_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("com.miui.home"),
         deviceScope = setOf(DeviceType.PAD),
         hideOnUnsupportedDevice = true,
         showStatus = true,

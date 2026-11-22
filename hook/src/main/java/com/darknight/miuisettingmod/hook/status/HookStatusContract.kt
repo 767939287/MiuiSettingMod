@@ -43,4 +43,20 @@ object HookStatusContract {
 
     /** 本进程安装失败的配置键集合（`ArrayList<String>`）。 */
     const val EXTRA_FAILED_KEYS = "failed_keys"
+
+    /** system_server 在 hook 侧上报时使用的来源包名。 */
+    const val SYSTEM_SERVER_PACKAGE = "android"
+
+    /** App 侧作用域与配置里 system_server 写作 `system`。 */
+    const val SYSTEM_SERVER_ALIAS = "system"
+
+    /**
+     * 归一化来源包名：`android` 与 `system` 视为同一个系统进程。
+     *
+     * hook 侧 `PackageTarget.fromSystemServer()` 取的是 `android`，而 App 侧配置项
+     * 与 LSPosed 作用域里写作 `system`，不归一化会导致两边永远匹配不上，
+     * 状态只能停在「等待启动」。
+     */
+    fun normalizePackage(packageName: String): String =
+        if (packageName == SYSTEM_SERVER_PACKAGE) SYSTEM_SERVER_ALIAS else packageName
 }

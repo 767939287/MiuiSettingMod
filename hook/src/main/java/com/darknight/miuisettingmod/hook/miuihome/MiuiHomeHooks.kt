@@ -22,6 +22,7 @@ class MiuiHomeLoad : BaseLoad() {
         initHook(HomeDockHiddenHook(), HookPrefs.getBoolean(KEY_HIDE_DOCK, false))
         initHook(HomeGridExpandHook(), HookPrefs.getBoolean(KEY_EXPAND_GRID, false))
         initHook(HomeDockNoAnimationHook(), HookPrefs.getBoolean(KEY_NO_DOCK_ANIMATION, false))
+        initHook(HomeDockDesktopOnlyHook(), HookPrefs.getBoolean(KEY_DOCK_DESKTOP_ONLY, false))
     }
 
     companion object {
@@ -36,6 +37,9 @@ class MiuiHomeLoad : BaseLoad() {
 
         /** 返回桌面时 Dock 不播放弹出动画（Dock 保留）。 */
         const val KEY_NO_DOCK_ANIMATION = "home_dock_no_animation_enabled"
+
+        /** Dock 仅在桌面显示（应用 / 最近任务隐藏）。 */
+        const val KEY_DOCK_DESKTOP_ONLY = "home_dock_desktop_only_enabled"
     }
 }
 
