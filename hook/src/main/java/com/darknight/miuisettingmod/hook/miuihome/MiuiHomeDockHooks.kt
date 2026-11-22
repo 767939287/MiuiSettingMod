@@ -486,7 +486,8 @@ class HomeDockDesktopOnlyHook : BaseHook() {
     private fun resolveDockView(manager: Any): View? {
         dockView?.let { return it }
         return runCatching {
-            val windowManager = Reflect.getObjectField(manager, "dockWindowManager")
+            val windowManager =
+                Reflect.getObjectField(manager, "dockWindowManager") ?: return@runCatching null
             (Reflect.getObjectField(windowManager, "dockView") as? View)?.also { dockView = it }
         }.getOrNull()
     }
