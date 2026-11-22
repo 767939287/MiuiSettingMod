@@ -52,6 +52,18 @@ object HookStatusStore {
     /** 当前模块 versionCode（初始化后有效，0 表示未知）。 */
     fun currentVersionCode(): Long = versionCode
 
+    /**
+     * 重新从本地存储读取一次状态。
+     *
+     * 目标进程的回报广播经常在 App 退到后台时才投递（或被 ROM 冻结/延迟），
+     * 此时 [mutableSnapshot] 不会跟着更新，表现为「必须重启 App 才显示生效」。
+     * App 回到前台时调用一次即可补上这次刷新。
+     */
+    fun reload() {
+        if (preferences == null) return
+        mutableSnapshot.value = readScopedSnapshot()
+    }
+
     /** 某键在指定目标包集合下的当前状态。 */
     fun statusFor(key: String, targetPackages: Collection<String>): HookStatus {
         val snapshot = mutableSnapshot.value
