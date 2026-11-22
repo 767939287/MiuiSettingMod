@@ -205,7 +205,6 @@ class SideRoadChargeForceOnHook : BaseHook() {
                 batteryReceiver,
                 filter,
                 Context.RECEIVER_NOT_EXPORTED,
-                null,
             )
         }.recoverCatching {
             context.registerReceiver(batteryReceiver, filter)
