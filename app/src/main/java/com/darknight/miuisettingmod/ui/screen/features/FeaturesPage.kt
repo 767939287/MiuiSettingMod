@@ -30,12 +30,16 @@ fun FeaturesPageView(
 ) {
     val specs = remember { featureSpecs() }
     val sections = remember(specs) { featureSections(specs) }
+    // 功能项全部是开关，页面自动汇总的「重启应用」包名列表为空，
+    // 这里按各功能的目标包显式注入，顶栏才会出现重启按钮。
+    val restartPackages = remember(specs) { specs.flatMap { it.targetPackages }.distinct() }
 
     HookOptionsPage(
         title = stringResource(R.string.tab_features),
         sections = sections,
         isBlurEnabled = isBlurEnabled,
         extraBottomPadding = extraBottomPadding,
+        customActionPackages = restartPackages,
         externalSearchKey = pendingSearchKey,
         onExternalSearchHandled = onSearchKeyHandled,
     )
