@@ -113,6 +113,10 @@ data class DeviceContext(
                 miuiTablet -> DeviceType.PAD
                 foldable -> DeviceType.FOLD
                 smallest >= TABLET_MIN_WIDTH_DP -> DeviceType.PAD
+                // 兜底：读不到 miui.os.Build.IS_TABLET、且最小宽度报得比 600dp 小，
+                // 但 ro.build.characteristics 明确写了 tablet——这类设备仍应按平板处理，
+                // 否则 Dock 等 PAD 专属 hook 会被判成手机而整块隐藏。
+                tablet -> DeviceType.PAD
                 else -> DeviceType.PHONE
             }
 

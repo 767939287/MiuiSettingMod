@@ -62,11 +62,23 @@ object HookStatusReporter {
         installedKeys.add(key)
     }
 
-    /** 记录一个安装失败的配置键，用于 App 侧显示「不可用」。 */
+    /**
+     * 记录一个安装失败的配置键，用于 App 侧显示「不可用」。
+     *
+     * @param overrideInstalled 为 true 时，即使该键已被乐观地标记为「已安装」
+     *   （[com.darknight.miuisettingmod.hook.base.BaseLoad] 在 `init()` 返回后就会
+     *   `markInstalled`），也改成失败。用于异步安装的 hook（例如 AOD 插件类要等
+     *   插件 ClassLoader 就绪）事后纠正状态。
+     */
     @Synchronized
-    fun markFailed(key: String) {
+    fun markFailed(key: String, overrideInstalled: Boolean = false) {
         if (key.isBlank()) return
         evaluatedKeys.add(key)
+        if (overrideInstalled) {
+            installedKeys.remove(key)
+            failedKeys.add(key)
+            return
+        }
         if (key !in installedKeys) failedKeys.add(key)
     }
 

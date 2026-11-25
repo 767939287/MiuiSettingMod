@@ -36,7 +36,7 @@ import top.yukonga.miuix.kmp.preference.CheckboxPreference
 /**
  * 包名列表重启对话框：勾选后批量「重启」。
  *
- * - 每行右侧为勾选组件，默认全选；
+ * - 每行右侧为勾选组件，**默认全不选**（避免误触直接重启进程）；
  * - 底部左侧为「全选 / 全不选」普通按钮，右侧为「重启」主按钮（无勾选时禁用）。
  *
  * 由 [HookOptionsPage] 在检测到 `PACKAGE_LIST` 选项或传入自定义包名时，通过右上角按钮弹出。
@@ -52,7 +52,8 @@ fun QuickActionDialog(
     // 去重：调用方传入的包名可能重复（如显式列表叠加同一组包名），
     // 否则 selected（Set）永远小于 packages.size，「全选/全不选」判断将失效。
     val uniquePackages = remember(packages) { packages.distinct() }
-    var selected by remember(uniquePackages) { mutableStateOf(uniquePackages.toSet()) }
+    // 默认不勾选任何包：重启是破坏性操作，应由用户主动选择目标。
+    var selected by remember(uniquePackages) { mutableStateOf(emptySet<String>()) }
     val allSelected = uniquePackages.isNotEmpty() && selected.containsAll(uniquePackages)
 
     // 目标包含系统进程时，重启会触发系统重启，需二次确认。
