@@ -35,8 +35,8 @@ android {
         applicationId = "com.darknight.miuisettingmod"
         minSdk = 35
         targetSdk = 37
-        versionCode = 14
-        versionName = "1.3.0.1"
+        versionCode = 15
+        versionName = "1.3.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -122,6 +122,7 @@ dependencies {
     implementation(libs.material.icons)
     implementation(libs.commonmark)
 }
+
 
 
 
