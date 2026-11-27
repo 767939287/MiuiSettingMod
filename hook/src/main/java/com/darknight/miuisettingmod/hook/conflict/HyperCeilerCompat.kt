@@ -1,6 +1,5 @@
 package com.darknight.miuisettingmod.hook.conflict
 
-import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
 import android.net.Uri
@@ -51,7 +50,7 @@ object HyperCeilerCompat {
      * 用 `ActivityThread#getSystemContext()` 而不是 `currentApplication()`：
      * 后者在 `Application#onCreate` 之前为 null，而 hook 安装时机可能更早。
      */
-    @SuppressLint("PrivateApi")
+    @Suppress("PrivateApi")
     private val context: Context? by lazy {
         runCatching {
             val activityThread = Class.forName("android.app.ActivityThread")
