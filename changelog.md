@@ -1,5 +1,28 @@
 # 更新日志
 
+## 1.3.0.2
+
+> 发布于 2026-11-27
+
+### 变更
+
+- **桌面自动下载小组件回归原生行为**：「桌面付费小组件支持」不再顺带放开
+  `MaMlPendingHostView#isCanAutoStartDownload`。此前该 hook 与主题相关开关共用一
+  个开关，打开后会一并允许桌面在后台自动下载 MAML 小组件（持续下载 + 小组件自
+  刷新，属于常驻耗电），现已移除该 hook，默认保持关闭。
+- **HyperCeiler 冲突提示**：新增只读检测（通过 HyperCeiler 导出的配置
+  provider `com.sevtinge.hyperceiler.provider.sharedprefs`），当检测到
+  HyperCeiler 已开启同功能时写入一条日志，便于排查两个模块 hook 同一方法的问题：
+  - 手势线：HyperCeiler「引导式访问 + 增强屏蔽」
+  - 桌面 Dock：HyperCeiler「隐藏 Dock / 底栏高度 / 平板网格」
+
+### 说明
+
+- 冲突检测**只提示、不跳过**：跳过本模块 hook 会让已经打开的开关变成「开了也不
+  生效」，比重复 hook 更难排查。
+- 检测在后台线程执行，不阻塞 SystemUI / 桌面启动；system_server 侧不做
+  provider 查询（AMS 自调用启动其它进程的 provider 存在超时风险）。
+
 ## 1.3.0.1
 
 > 发布于 2026-11-25
@@ -127,7 +150,7 @@
 
 ### 修复
 
-- **主题破解锁屏解锁后失效**：system_server 侧原来只在 `ThemeReceiver#validateTheme` 执行期间临时放行 `DrmManager#isLegal`，锁屏解锁 / 开机后系统会从 `ThemeManagerService`、异步复检等其它入口再次校验，落在临时窗口外就被判非法。现在改为常驻返回 `DRM_SUCCESS`（沿继承链收集所有 `isLegal` 重载，类未加载时自动重试），开关关闭时不安装。
+- **主题校验在锁屏解锁后失效**：system_server 侧原来只在 `ThemeReceiver#validateTheme` 执行期间临时放行 `DrmManager#isLegal`，锁屏解锁 / 开机后系统会从 `ThemeManagerService`、异步复检等其它入口再次校验，落在临时窗口外就被判非法。现在改为常驻返回 `DRM_SUCCESS`（沿继承链收集所有 `isLegal` 重载，类未加载时自动重试），开关关闭时不安装。
 - **DexKit 定位不稳定**：主题 DRM 与大图标授权两处原来取 `first()`，命中多个方法时会偶尔挂错对象。现在按返回类型筛选候选（`DrmResult` 优先、`boolean` 兼作）并逐个挂钩，同时把缓存键升级为 `_v2` 避免类型不匹配的旧缓存。
 
 > 注意：system_server 侧的改动需要重启手机后生效。

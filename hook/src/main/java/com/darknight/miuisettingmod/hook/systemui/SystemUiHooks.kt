@@ -12,6 +12,7 @@ import android.view.WindowManager
 import com.darknight.miuisettingmod.hook.base.BaseHook
 import com.darknight.miuisettingmod.hook.base.BaseLoad
 import com.darknight.miuisettingmod.hook.base.PackageTarget
+import com.darknight.miuisettingmod.hook.conflict.HyperCeilerCompat
 import com.darknight.miuisettingmod.hook.prefs.HookPrefs
 import com.darknight.miuisettingmod.hook.status.HookStatusReporter
 import com.darknight.miuisettingmod.hook.xposed.HookHelper
@@ -113,6 +114,15 @@ class HideGestureLineHook : BaseHook() {
         syncInstall()
         // 热重载：开关或方案变化后立即生效（inset 归零除外，见类注释）。
         HookPrefs.registerListener { onPrefsChanged() }
+        // 只提示不跳过：HyperCeiler 的「引导式访问 + 增强屏蔽」在固定应用期间
+        // 也会压制 NavigationHandle 的 alpha/onDraw，与本 hook 的显隐状态互有覆盖。
+        HyperCeilerCompat.warnIfEnabled(
+            tag,
+            "HyperCeiler「引导式访问 + 增强屏蔽」已开启，固定应用期间会同时压制手势条，" +
+                "两边的显隐状态可能互相覆盖",
+            HyperCeilerCompat.KEY_GUIDED_ACCESS,
+            HyperCeilerCompat.KEY_GUIDED_ACCESS_STATUS,
+        )
     }
 
     /** 配置变化回调：重读开关，补齐需要的 hook 并触发一次重绘。 */

@@ -37,7 +37,7 @@ class SystemServerThemeLoad : BaseLoad() {
  *
  * 早期实现只在 `ThemeReceiver#validateTheme` 执行期间临时挂钩，锁屏解锁 / 开机后
  * 系统会从别的入口（`ThemeManagerService`、异步复检、缓存复检）再次调用 `isLegal`，
- * 落在临时窗口外就会被判非法，表现为「主题破解偶尔失效」。
+ * 落在临时窗口外就会被判非法，表现为「主题校验偶尔失效」。
  * 改为在 system_server 里常驻返回 `DRM_SUCCESS`。
  *
  * `isLegal` 可能定义在父类上，因此沿继承链收集重载；`DrmManager` 在 system_server

@@ -185,7 +185,7 @@ class ThemeManagerDrmResultHook : BaseHook() {
             return false
         }
         // 优先返回 `DrmResult` 的方法（真正的校验方法），没有再退化到 boolean 判定方法。
-        // 只取 `first()` 在多个方法命中时不稳定，会偶尔 hook 到无关方法导致破解失效。
+        // 只取 `first()` 在多个方法命中时不稳定，会偶尔 hook 到无关方法导致授权判定失效。
         val drmResultMethods = all.filter { isDrmResultType(it.returnType) }
         val booleanMethods = all.filter {
             it.returnType == java.lang.Boolean.TYPE || it.returnType == java.lang.Boolean::class.java
