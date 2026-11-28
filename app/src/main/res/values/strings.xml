@@ -273,4 +273,16 @@
     <string name="side_road_charge_force_on_summary">插电后自动打开系统的旁路充电开关（机型需支持）；手动停止后本次充电不再重开，拔电即恢复；电量、温度条件仍由系统判定</string>
     <string name="side_road_charge_block_stop">阻止息屏停止旁路充电</string>
     <string name="side_road_charge_block_stop_summary">系统在息屏时会自动关闭旁路充电，开启后保持直供；拔电或手动停止仍然有效</string>
+    <!-- Features: battery / power rank -->
+    <string name="feature_section_battery">省电与电池</string>
+    <string name="power_rank_screen_usage_time_enabled">耗电排行显示亮屏时长</string>
+    <string name="power_rank_screen_usage_time_enabled_summary">「屏幕」一行原本只有耗电量和占比，开启后补上亮屏时长（取系统电量统计，原生显示格式）；需重启安全中心</string>
+    <!-- Features: privacy -->
+    <string name="feature_section_privacy">隐私保护</string>
+    <string name="xsof_block_enabled">阻断小米反诈监控（XSOF）</string>
+    <string name="xsof_block_enabled_summary">拦截手机管家对截图、通话、SIM、飞行模式、呼叫转移、屏幕共享、应用安装等行为的监听与数据库写入，并拒绝风险查询接口；已有记录不会删除，改动后需重启手机管家</string>
+    <string name="guard_ai_detection_disable">停用 AI 通话反诈检测</string>
+    <string name="guard_ai_detection_disable_summary">GuardProvider 的 AI 音视频反诈服务不再启动（请求停止并拒绝粘性重启），相关反诈能力会失效；需重启该组件</string>
+    <string name="systemhelper_telemetry_disable">停用运营商遥测上报</string>
+    <string name="systemhelper_telemetry_disable_summary">拦截 SystemHelper 的许可判断、加密上报、应用使用统计线程与 7 个统计广播入口；运营商的终端注册与体验计划统计可能失效</string>
 </resources>

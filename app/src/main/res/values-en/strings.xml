@@ -273,4 +273,16 @@
     <string name="side_road_charge_force_on_summary">Turn on the system bypass charging switch after the charger is plugged in (supported devices only); a manual stop stays respected until you unplug; battery level and thermal checks still apply</string>
     <string name="side_road_charge_block_stop">Keep Bypass Charging on Screen Off</string>
     <string name="side_road_charge_block_stop_summary">The system stops bypass charging when the screen turns off; enable this to keep it running. Unplugging or stopping it manually still works</string>
+    <!-- Features: battery / power rank -->
+    <string name="feature_section_battery">Battery</string>
+    <string name="power_rank_screen_usage_time_enabled">Show Screen-On Time in Power Ranking</string>
+    <string name="power_rank_screen_usage_time_enabled_summary">The Screen row normally shows only drain and percentage; enable this to append screen-on duration (from system battery stats, native format). Restart Security Center afterwards</string>
+    <!-- Features: privacy -->
+    <string name="feature_section_privacy">Privacy</string>
+    <string name="xsof_block_enabled">Block Xiaomi Anti-Fraud Monitoring (XSOF)</string>
+    <string name="xsof_block_enabled_summary">Intercepts Security Center listeners and database writes for screenshots, calls, SIM, airplane mode, call forwarding, screen sharing and app installs, and rejects risk-query APIs. Existing records are kept; restart Security Center afterwards</string>
+    <string name="guard_ai_detection_disable">Disable AI Call Fraud Detection</string>
+    <string name="guard_ai_detection_disable_summary">GuardProvider AI audio/video fraud detection no longer starts (requests stop and refuses sticky restart). Related anti-fraud features stop working; restart that component</string>
+    <string name="systemhelper_telemetry_disable">Disable Carrier Telemetry</string>
+    <string name="systemhelper_telemetry_disable_summary">Blocks SystemHelper policy checks, encrypted uploads, app-usage collection and 7 telemetry broadcast receivers; carrier device registration and improvement-plan stats may stop working</string>
 </resources>

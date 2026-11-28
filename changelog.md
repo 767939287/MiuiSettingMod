@@ -1,5 +1,38 @@
 # 更新日志
 
+## 1.3.1
+
+> 发布于 2026-11-28
+
+### 新增
+
+- **耗电排行显示亮屏时长**：「屏幕」一行原本只有耗电量和占比，现在会补上亮屏时长
+  （原生 `3h20m` 格式）。数据取自系统电量统计（`BatteryStatsUtils#getBatteryStats`
+  → `BatteryStats#getScreenOnTime`），带 30 秒缓存，排版仍走原生 `G.p()`。
+- **阻断小米反诈监控（XSOF）**：功能页新增「隐私保护」分区。拦截手机管家对截图、
+  电话、SIM、飞行模式、呼叫转移、屏幕共享、应用安装等行为的监听注册与
+  `fraud_detection_data.db` 写入，阻断 `FraudDetectionProvider` 内部写入入口，并以
+  `(null, 1017)` 拒绝 `xsof_fraud_detection_*` 查询接口；已有记录不会被删除。
+- **停用 AI 通话反诈检测**：GuardProvider 的 AI 检测服务启动即被停止
+  （`stopSelf` + 返回 `START_NOT_STICKY`，不粘性重启）。
+- **停用运营商遥测上报**：SystemHelper 的许可判断、加密上报（含新版兜底发送）、
+  应用使用统计线程与 7 个统计广播接收器全部拦截。
+- 新增作用域 `com.miui.guardprovider`、`com.mobiletools.systemhelper`：安装新版后
+  需要在 LSPosed 中勾选，否则这两项不会生效。
+
+### 修复
+
+- **安全中心子进程判断错误**：清单里子进程名是 `com.miui.securitycenter.remote`
+  （全名，不是 `:remote`），旧判断永不命中，导致旁路充电的 hook 实际从未安装。
+  现在两种写法都能识别。
+
+### 说明
+
+- 反诈 / 遥测拦截按 DEX 语义特征定位（类名、方法名混淆变化不影响），候选取不到或
+  不唯一时整组跳过并写日志（`[XSOF] SKIPPED`），不会乱 hook。
+- 开关改动后需重启对应进程（安全中心 / GuardProvider / SystemHelper）；日志过滤
+  `MiuiSettingMod` 可看到 `INSTALLED` / `BLOCK`（每条目标首次命中 + 每 20 次采样）。
+
 ## 1.3.0.2
 
 > 发布于 2026-11-27

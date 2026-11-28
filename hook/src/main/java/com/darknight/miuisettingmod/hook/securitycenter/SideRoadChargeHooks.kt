@@ -23,38 +23,65 @@ import java.lang.reflect.Method
 /**
  * com.miui.securitycenter（安全中心）进程的 hook 入口。
  *
- * 覆盖「旁路充电」（边玩边充直供）：
- * - 强制开启：插电后自动进入旁路充电；
- * - 阻止熄屏自动停止。
+ * 覆盖：
+ * - 「旁路充电」（边玩边充直供）：强制开启 / 阻止熄屏自动停止；
+ * - 「阻断小米反诈监控」（XSOF 监听、写入、查询接口）；
+ * - 「耗电排行显示亮屏时长」。
  *
- * `PowerSaveService` 运行在 `:remote` 子进程，libxposed 会按包名注入全部进程。
+ * 进程路由：
+ * - `com.miui.securitycenter.remote`（清单里写的是全名，不是 `:remote`）承载
+ *   `PowerSaveService`、XSOF 采集服务 / Provider / 查询服务 —— 旁路充电与 XSOF 都装在这里；
+ * - 默认进程承载耗电详情 UI（`PowerDetailActivity`）—— 排行渲染 hook 装在默认进程。
+ * 分开装既避免在无关进程重复建 DexKit 会话，也避免多进程争写同一份缓存。
  */
 class SecurityCenterLoad : BaseLoad() {
 
     override val targetPackages: List<String> = listOf(TARGET_PACKAGE)
 
     override fun onPackageLoaded(target: PackageTarget) {
-        // PowerSaveService 只在 :remote 进程：主进程里既拿不到服务实例，
-        // 又会让 DexKit 在多个进程各建一份会话并争写同一缓存文件。
-        if (!target.processName.endsWith(PROCESS_SUFFIX)) {
-            HookHelper.log("SecurityCenterLoad: skip process ${target.processName}")
-            return
+        if (isRemoteProcess(target.processName)) {
+            initHook(
+                SideRoadChargeForceOnHook(),
+                HookPrefs.getBoolean(SideRoadChargeForceOnHook.KEY, false),
+            )
+            initHook(
+                SideRoadChargeBlockStopHook(),
+                HookPrefs.getBoolean(SideRoadChargeBlockStopHook.KEY, false),
+            )
+            initHook(
+                XsofBlockHook(),
+                HookPrefs.getBoolean(KEY_XSOF_BLOCK, false),
+            )
+        } else {
+            if (target.processName != MAIN_PROCESS_NAME) {
+                HookHelper.log("SecurityCenterLoad: skip process ${target.processName}")
+                return
+            }
+            initHook(
+                PowerRankScreenTimeHook(),
+                HookPrefs.getBoolean(KEY_POWER_RANK_SCREEN_TIME, false),
+            )
         }
-        initHook(
-            SideRoadChargeForceOnHook(),
-            HookPrefs.getBoolean(SideRoadChargeForceOnHook.KEY, false),
-        )
-        initHook(
-            SideRoadChargeBlockStopHook(),
-            HookPrefs.getBoolean(SideRoadChargeBlockStopHook.KEY, false),
-        )
     }
+
+    /** 兼容两种写法：全名 `com.miui.securitycenter.remote` 与简写 `com.miui.securitycenter:remote`。 */
+    private fun isRemoteProcess(processName: String): Boolean =
+        processName == REMOTE_PROCESS_NAME || processName.endsWith(".remote")
 
     companion object {
         const val TARGET_PACKAGE = "com.miui.securitycenter"
 
-        /** `PowerSaveService` 所在子进程后缀。 */
-        private const val PROCESS_SUFFIX = ":remote"
+        /** 默认进程：耗电详情 UI 与主题破解等轻量 hook 都跑在这里。 */
+        const val MAIN_PROCESS_NAME = "com.miui.securitycenter"
+
+        /** `PowerSaveService` / XSOF 组件所在的子进程（清单中为全名）。 */
+        const val REMOTE_PROCESS_NAME = "com.miui.securitycenter.remote"
+
+        /** XSOF 反诈监控拦截开关。 */
+        const val KEY_XSOF_BLOCK = "xsof_block_enabled"
+
+        /** 耗电排行「屏幕」行补亮屏时长开关。 */
+        const val KEY_POWER_RANK_SCREEN_TIME = "power_rank_screen_usage_time_enabled"
 
         /** 电源服务（真名，未混淆），旁路充电所有指令的唯一分发点。 */
         const val SERVICE_CLASS = "com.miui.powercenter.provider.PowerSaveService"

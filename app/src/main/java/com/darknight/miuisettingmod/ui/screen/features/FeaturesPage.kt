@@ -94,6 +94,20 @@ private fun featureSections(specs: List<OptionSpec>): List<HookSection> = listOf
             specByKey(specs, "side_road_charge_block_stop"),
         ),
     ),
+    HookSection(
+        titleRes = R.string.feature_section_battery,
+        specs = listOf(
+            specByKey(specs, "power_rank_screen_usage_time_enabled"),
+        ),
+    ),
+    HookSection(
+        titleRes = R.string.feature_section_privacy,
+        specs = listOf(
+            specByKey(specs, "xsof_block_enabled"),
+            specByKey(specs, "guard_ai_detection_disable"),
+            specByKey(specs, "systemhelper_telemetry_disable"),
+        ),
+    ),
 )
 
 /** 功能页的全部配置项（App 启动时注册，供全局搜索与作用域申请使用）。 */
@@ -251,6 +265,42 @@ internal fun featureSpecs(): List<OptionSpec> = listOf(
         summaryRes = R.string.side_road_charge_block_stop_summary,
         defaultBoolean = false,
         targetPackages = listOf("com.miui.securitycenter"),
+        showStatus = true,
+    ),
+    OptionSpec(
+        key = "power_rank_screen_usage_time_enabled",
+        type = OptionType.SWITCH,
+        titleRes = R.string.power_rank_screen_usage_time_enabled,
+        summaryRes = R.string.power_rank_screen_usage_time_enabled_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("com.miui.securitycenter"),
+        showStatus = true,
+    ),
+    OptionSpec(
+        key = "xsof_block_enabled",
+        type = OptionType.SWITCH,
+        titleRes = R.string.xsof_block_enabled,
+        summaryRes = R.string.xsof_block_enabled_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("com.miui.securitycenter"),
+        showStatus = true,
+    ),
+    OptionSpec(
+        key = "guard_ai_detection_disable",
+        type = OptionType.SWITCH,
+        titleRes = R.string.guard_ai_detection_disable,
+        summaryRes = R.string.guard_ai_detection_disable_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("com.miui.guardprovider"),
+        showStatus = true,
+    ),
+    OptionSpec(
+        key = "systemhelper_telemetry_disable",
+        type = OptionType.SWITCH,
+        titleRes = R.string.systemhelper_telemetry_disable,
+        summaryRes = R.string.systemhelper_telemetry_disable_summary,
+        defaultBoolean = false,
+        targetPackages = listOf("com.mobiletools.systemhelper"),
         showStatus = true,
     ),
 )
